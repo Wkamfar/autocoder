@@ -6,7 +6,7 @@ import { getAuthMode } from "../modules/security/config.js";
 import { asActivePolicy, asBeneficiary, asDecision, asServiceHealth, asTransferIntent, asVoiceChallenge, asVoiceProof } from "../modules/wire/serializers.js";
 import { listIntentEvents, verifyEventChain } from "../modules/evidence/eventChain.js";
 import { emitOrgAuditEvent } from "../modules/audit/auditEvents.js";
-import { createBeneficiary, listBeneficiaries, updateBeneficiary } from "../modules/beneficiaries/beneficiaryService.js";
+import { createBeneficiary, listBeneficiaries, updateBeneficiary, getBeneficiaryIntelligence } from "../modules/beneficiaries/beneficiaryService.js";
 import { createPolicyVersion, getActivePolicy } from "../modules/policies/policyService.js";
 import { canonicalJsonStringify } from "../lib/canonicalJson.js";
 import { sha256Hex } from "../lib/sha256.js";
@@ -656,6 +656,7 @@ export const wireRoutes: FastifyPluginAsync = async (app) => {
     async (req, reply) => {
       const bodySchema = z.object({
         displayName: z.string().min(1),
+        email: z.string().email().optional(),
         country: z.string().min(2).max(2),
         railsAllowed: z.array(z.enum(["ACH", "WIRE"])).min(1),
         bankLast4: z.string().min(4).max(4),
@@ -673,21 +674,74 @@ export const wireRoutes: FastifyPluginAsync = async (app) => {
             ts: Date.now(),
           })
         );
-      const created = await createBeneficiary({
+      const { beneficiary: created, confirmationToken } = await createBeneficiary({
         orgId: req.user!.orgId,
         userId: req.user!.id,
         displayName: body.displayName,
+        email: body.email,
         country: body.country,
         railsAllowed: body.railsAllowed,
         bankLast4: body.bankLast4,
         bankTokenHash,
       });
+      
+      // Send confirmation email if email is provided
+      if (body.email && confirmationToken) {
+        try {
+          const { sendEmail, generateEmailTemplate } = await import("../modules/email/emailService.js");
+          const { enqueueEmail } = await import("../modules/email/emailJobs.js");
+          const baseUrl = (process.env.FRONTEND_URL || "https://wire.pose.xyz").replace(/\/$/, "");
+          const confirmationUrl = `${baseUrl}/v2/beneficiaries/confirm?token=${encodeURIComponent(confirmationToken)}`;
+          
+          const emailTemplate = generateEmailTemplate("user_invitation", {
+            name: body.displayName,
+            invitationUrl: confirmationUrl,
+            orgName: req.user!.orgId, // Could fetch org name if needed
+          });
+          
+          const emailOptions = {
+            to: body.email,
+            templateType: "user_invitation" as const,
+            subject: `Confirm your beneficiary account - ${body.displayName}`,
+            bodyHtml: emailTemplate.bodyHtml.replace(
+              /{{invitationUrl}}/g,
+              confirmationUrl
+            ).replace(
+              /{{name}}/g,
+              body.displayName
+            ),
+            bodyText: emailTemplate.bodyText.replace(
+              /{{invitationUrl}}/g,
+              confirmationUrl
+            ).replace(
+              /{{name}}/g,
+              body.displayName
+            ),
+            variables: {
+              name: body.displayName,
+              invitationUrl: confirmationUrl,
+            },
+          };
+          
+          if (process.env.EMAIL_ASYNC === "true") {
+            await enqueueEmail({ ...emailOptions, orgId: req.user!.orgId, userId: req.user!.id });
+          } else {
+            await sendEmail(emailOptions);
+          }
+          req.log.info({ beneficiaryId: created.id, email: body.email }, "Beneficiary confirmation email sent");
+        } catch (err: any) {
+          req.log.warn({ err, beneficiaryId: created.id }, "Failed to send beneficiary confirmation email");
+          // Don't fail beneficiary creation if email fails
+        }
+      }
+      
       await emitOrgAuditEvent({
         req,
         eventType: "beneficiary.created",
         subject: { type: "beneficiary", id: created.id },
         payload: {
           displayName: created.displayName,
+          email: created.email,
           country: created.country,
           railsAllowed: created.railsAllowed,
           bankLast4: created.bankLast4,
@@ -744,6 +798,25 @@ export const wireRoutes: FastifyPluginAsync = async (app) => {
       return asBeneficiary(updated);
     }
   );
+
+  // Get beneficiary intelligence (real data from intents)
+  app.get("/beneficiaries/:id/intelligence", async (req, reply) => {
+    if (!req.user) {
+      return reply.code(401).send({ error: "Unauthorized", code: "AUTH_REQUIRED" });
+    }
+    
+    const beneficiaryId = (req.params as any).id;
+    const intelligence = await getBeneficiaryIntelligence({
+      orgId: req.user.orgId,
+      beneficiaryId,
+    });
+
+    if (!intelligence) {
+      return reply.code(404).send({ error: "Beneficiary not found" });
+    }
+
+    return intelligence;
+  });
 
   // Policies
   app.get("/policies", async (req, reply) => {

@@ -379,10 +379,72 @@ export default function WireBeneficiaryIntelligencePage() {
   
   const beneficiary = beneficiaries?.find((b) => b.id === id);
   
-  const { data: intelligence } = useQuery({
+  const { data: intelligence, isLoading: intelligenceLoading } = useQuery({
     queryKey: ["vendorIntelligence", id],
-    queryFn: () => Promise.resolve(generateVendorIntelligence(id || "")),
+    queryFn: () => api.wireApi.getBeneficiaryIntelligence(id || ""),
     enabled: !!id,
+    // Fallback to empty data structure if API fails or no data yet
+    placeholderData: () => {
+      // Return minimal structure for new beneficiaries with no transfers yet
+      return {
+        relationshipMetrics: {
+          totalTransfers: 0,
+          totalVolume: 0,
+          averageTransferAmount: 0,
+          largestTransfer: 0,
+          relationshipDuration: 0,
+          transferFrequency: 0,
+          onTimePaymentRate: 0,
+          disputeRate: 0,
+          communicationScore: 0,
+          trustScore: 0,
+        },
+        behavioralPatterns: {
+          preferredTransferDays: [],
+          preferredTransferTimes: [],
+          seasonalPatterns: [],
+          amountPatterns: [],
+          approvalPatterns: {
+            averageApprovalTime: 0,
+            approvalRate: 0,
+            denialReasons: [],
+          },
+        },
+        riskAnalysis: {
+          currentRiskScore: 0,
+          riskTrend: [],
+          riskFactors: [],
+          anomalyDetections: [],
+        },
+        predictiveAnalytics: {
+          nextTransferPrediction: {
+            predictedDate: "",
+            confidence: 0,
+            predictedAmount: 0,
+          },
+          volumeForecast: [],
+          riskForecast: [],
+        },
+        adminControls: {
+          caps: {},
+          restrictions: [],
+          notes: [],
+          tags: [],
+          flags: [],
+        },
+        communicationHistory: [],
+        documents: [],
+        compliance: {
+          kycStatus: "pending" as const,
+          kycExpiry: "",
+          sanctionsCheck: "clear" as const,
+          lastSanctionsCheck: "",
+          regulatoryFlags: [],
+          certifications: [],
+        },
+        auditTrail: [],
+      };
+    },
   });
 
   // Filter intents for this beneficiary
@@ -393,7 +455,17 @@ export default function WireBeneficiaryIntelligencePage() {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [intents, id]);
 
-  if (!beneficiary || !intelligence) {
+  if (!beneficiary) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-gray-600">Beneficiary not found</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (intelligenceLoading || !intelligence) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">

@@ -8,6 +8,7 @@ interface WireBeneficiaryFormProps {
 
 export function WireBeneficiaryForm({ onSubmit, onCancel }: WireBeneficiaryFormProps) {
   const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
   const [country, setCountry] = useState("US");
   const [railsAllowed, setRailsAllowed] = useState<RailsType[]>(["ACH"]);
   const [bankLast4, setBankLast4] = useState("");
@@ -24,6 +25,7 @@ export function WireBeneficiaryForm({ onSubmit, onCancel }: WireBeneficiaryFormP
     e.preventDefault();
     onSubmit({
       displayName,
+      email: email || undefined,
       country,
       railsAllowed,
       bankLast4,
@@ -45,6 +47,24 @@ export function WireBeneficiaryForm({ onSubmit, onCancel }: WireBeneficiaryFormP
           className="w-full px-3 py-2 border-2 border-black rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/20 transition-all duration-200"
           required
         />
+      </div>
+
+      {/* Email */}
+      <div>
+        <label className="block text-[10px] font-semibold uppercase tracking-[0.25em] text-gray-500 mb-2">
+          Email Address
+        </label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="beneficiary@example.com"
+          className="w-full px-3 py-2 border-2 border-black rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-black/20 transition-all duration-200"
+          required
+        />
+        <p className="text-[10px] text-gray-500 mt-2 leading-relaxed">
+          We'll send a confirmation email to verify this beneficiary.
+        </p>
       </div>
 
       {/* Country */}

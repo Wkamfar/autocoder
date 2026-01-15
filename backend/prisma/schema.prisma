@@ -446,12 +446,16 @@ model Beneficiary {
   id            String           @id
   orgId         String
   displayName   String
+  email         String?          // Email for beneficiary confirmation
   country       String
   railsAllowed  RailsType[]
   bankLast4     String
   bankTokenHash String
   version       Int
   status        BeneficiaryStatus
+  confirmationToken String?      // Token for email confirmation link
+  confirmationTokenExpiresAt DateTime? // Expiration for confirmation token
+  confirmedAt   DateTime?       // When beneficiary confirmed via email
   createdAt     DateTime
   updatedAt     DateTime
   lastChangedAt DateTime
@@ -464,6 +468,7 @@ model Beneficiary {
   // Multi-tenant constraint helper: enables composite FK from Intent(orgId, beneficiaryId) -> Beneficiary(orgId, id).
   @@unique([id, orgId])
   @@index([orgId])
+  @@index([confirmationToken])
 }
 
 model BeneficiaryVersion {

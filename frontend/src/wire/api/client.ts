@@ -311,6 +311,10 @@ export const wireApi = {
     });
   },
 
+  getBeneficiaryIntelligence: async (id: string): Promise<any> => {
+    return apiRequest<any>(`/api/wire/beneficiaries/${id}/intelligence`);
+  },
+
   // Approval Status (derived from intent)
   getApprovalStatus: async (intentId: string): Promise<ApprovalStatus | undefined> => {
     try {

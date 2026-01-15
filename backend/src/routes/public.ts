@@ -11,6 +11,8 @@ import { enqueueEmail } from "../modules/email/emailJobs.js";
 import { prisma } from "../db/prisma.js";
 import crypto from "crypto";
 import { createMagicLinkSession } from "../modules/security/session.js";
+import { sha256Hex } from "../lib/sha256.js";
+import { canonicalJsonStringify } from "../lib/canonicalJson.js";
 
 export const publicRoutes: FastifyPluginAsync = async (app) => {
   // Public organization signup
@@ -241,5 +243,106 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
         details: process.env.NODE_ENV === "development" ? { message: error.message } : undefined,
       });
     }
+  });
+
+  // Public beneficiary confirmation endpoint (no auth required)
+  app.get("/beneficiaries/confirm", async (req, reply) => {
+    const token = (req.query as any).token;
+    if (!token || typeof token !== "string") {
+      return reply.code(400).send({ error: "Missing confirmation token" });
+    }
+
+    const beneficiary = await prisma.beneficiary.findFirst({
+      where: {
+        confirmationToken: token,
+        confirmationTokenExpiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!beneficiary) {
+      return reply.code(404).send({ error: "Invalid or expired confirmation token" });
+    }
+
+    // Return beneficiary info for the confirmation page
+    return {
+      beneficiaryId: beneficiary.id,
+      displayName: beneficiary.displayName,
+      email: beneficiary.email,
+      status: beneficiary.status,
+    };
+  });
+
+  // Public beneficiary confirmation submission (voice proof + account details)
+  app.post("/beneficiaries/confirm", async (req, reply) => {
+    const bodySchema = z.object({
+      token: z.string().min(1),
+      accountNumber: z.string().min(4).max(17),
+      routingNumber: z.string().min(4).max(20),
+      bankName: z.string().min(1).max(200),
+      audio: z.string().optional(), // Base64 encoded audio blob
+    });
+
+    let body;
+    try {
+      body = bodySchema.parse(req.body);
+    } catch (error) {
+      return reply.code(400).send({ error: "Invalid request data", code: "INVALID_REQUEST" });
+    }
+
+    const beneficiary = await prisma.beneficiary.findFirst({
+      where: {
+        confirmationToken: body.token,
+        confirmationTokenExpiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!beneficiary) {
+      return reply.code(404).send({ error: "Invalid or expired confirmation token" });
+    }
+
+    // Update beneficiary with account details and mark as confirmed
+    const bankTokenHash = sha256Hex(
+      canonicalJsonStringify({
+        orgId: beneficiary.orgId,
+        beneficiaryId: beneficiary.id,
+        accountNumber: body.accountNumber,
+        routingNumber: body.routingNumber,
+        bankName: body.bankName,
+        ts: Date.now(),
+      })
+    );
+
+    // Extract last 4 digits of account number for display
+    const bankLast4 = body.accountNumber.slice(-4);
+
+    const updated = await prisma.beneficiary.update({
+      where: { id: beneficiary.id },
+      data: {
+        bankTokenHash,
+        bankLast4,
+        status: "ACTIVE",
+        confirmedAt: new Date(),
+        confirmationToken: null, // Clear token after use
+        confirmationTokenExpiresAt: null,
+        updatedAt: new Date(),
+        lastChangedAt: new Date(),
+      },
+    });
+
+    // TODO: Process voice proof if audio is provided
+    // This would integrate with the voice verification service
+
+    // Create an intent automatically if beneficiary is confirmed
+    // For now, just return success - the frontend can create the intent
+
+    return {
+      success: true,
+      beneficiary: {
+        id: updated.id,
+        displayName: updated.displayName,
+        status: updated.status,
+      },
+      message: "Beneficiary confirmed successfully. You can now receive transfers.",
+    };
   });
 };
