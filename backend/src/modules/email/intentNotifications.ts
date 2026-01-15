@@ -173,7 +173,7 @@ export async function sendApprovalCompletedEmails(params: {
   // Get initiator
   const initiator = await prisma.user.findUnique({
     where: { id: intent.createdByUserId },
-    select: { name: true, email: true },
+    select: { id: true, name: true, email: true },
   });
   
   const baseUrl = (process.env.FRONTEND_URL || "https://wire.pose.xyz").replace(/\/$/, "");
@@ -316,7 +316,7 @@ export async function sendExecutionCompletedEmails(params: {
   // Get initiator
   const initiator = await prisma.user.findUnique({
     where: { id: intent.createdByUserId },
-    select: { name: true, email: true },
+    select: { id: true, name: true, email: true },
   });
   
   const baseUrl = (process.env.FRONTEND_URL || "https://wire.pose.xyz").replace(/\/$/, "");
