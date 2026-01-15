@@ -1,0 +1,68 @@
+name: Agent 11 droplet verify (POSE anchoring)
+
+on:
+  workflow_dispatch:
+    inputs:
+      restart_stack:
+        description: "Rebuild/recreate wire-backend + wire-worker before running verification"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      base_url:
+        description: "Wire2 base URL"
+        required: true
+        default: "https://wire.pose.xyz"
+        type: string
+      wire2_path:
+        description: "Path to wire2 on droplet"
+        required: true
+        default: "/opt/wire2"
+        type: string
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Verify Agent 11 on droplet (SSH)
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          BASE_URL: ${{ inputs.base_url }}
+          WIRE2_PATH: ${{ inputs.wire2_path }}
+          RESTART_STACK: ${{ inputs.restart_stack }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HOST:-}" ] || [ -z "${USER:-}" ]; then
+            echo "Missing required secrets: DEPLOY_HOST and/or DEPLOY_USER" >&2
+            exit 1
+          fi
+          PORT_ARG=""
+          if [ -n "${PORT:-}" ]; then
+            PORT_ARG="-p ${PORT}"
+          fi
+
+          echo "Connecting to ${USER}@${HOST} ${PORT_ARG}"
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${PORT_ARG} "${USER}@${HOST}" << 'EOF'
+            set -euo pipefail
+            export BASE_URL='${BASE_URL}'
+            export WIRE2_PATH='${WIRE2_PATH}'
+            export RESTART_STACK='${RESTART_STACK}'
+            export GITHUB_RUN_ID='${{ github.run_id }}'
+
+            cd "$WIRE2_PATH"
+            chmod +x ./scripts/verify_agent11_anchor_droplet.sh
+            ./scripts/verify_agent11_anchor_droplet.sh
+          EOF
+

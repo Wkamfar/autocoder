@@ -1,0 +1,372 @@
+/* Import Pebble System Fonts */
+/* Pebble fonts - fonts are loaded via public/fonts/ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom scrollbar for glassmorphism effect */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #00FFE0, #627EEA);
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 255, 224, 0.5);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #00FFE0, #8B5CF6);
+  box-shadow: 0 0 15px rgba(0, 255, 224, 0.7);
+}
+
+/* =================== Emulator 3 Weather Animations =================== */
+@keyframes rays { 
+  to { transform: rotate(360deg); } 
+}
+
+@keyframes drop { 
+  0% { transform: translateY(0); } 
+  100% { transform: translateY(8px); opacity: 0.2; } 
+}
+
+@keyframes flake { 
+  from { transform: rotate(0deg); } 
+  to { transform: rotate(30deg); } 
+}
+
+@keyframes drift { 
+  from { transform: translateX(-1px); } 
+  to { transform: translateX(1px); } 
+}
+
+.sun-rays line { 
+  transform-origin: 25px 17px; 
+  animation: rays 3s linear infinite; 
+}
+
+.rain line { 
+  animation: drop 1.2s cubic-bezier(0.2, 0, 0, 1) infinite; 
+}
+
+.rain line:nth-child(2) { 
+  animation-delay: 0.2s; 
+}
+
+.rain line:nth-child(3) { 
+  animation-delay: 0.4s; 
+}
+
+.snow line { 
+  animation: flake 1.6s ease-in-out infinite alternate; 
+}
+
+.cloud polyline { 
+  animation: drift 3.2s ease-in-out infinite alternate; 
+}
+
+:root{
+  --good:#00b368; --warn:#ffb100; --bad:#e53935;
+}
+html, body, #root { height: 100%; }
+
+/* ---------- RELOAD (after Back on watchface) ---------- */
+.reload {
+  position: fixed; 
+  inset: 0;
+  display: grid; 
+  place-items: center;
+  background: radial-gradient(140% 120% at 50% 0%, #0c0c0c, #020202);
+  z-index: 9999;
+}
+.reload-wrap {
+  display: grid; 
+  place-items: center; 
+  gap: 10px;
+}
+.reload-logo {
+  --size: 120px;
+  width: var(--size); 
+  height: var(--size);
+  border-radius: 50%;
+  position: relative;
+  display: grid; 
+  place-items: center;
+  background: radial-gradient(100% 100% at 50% 40%, #171717 0%, #080808 70%, #000 100%);
+  box-shadow: 0 10px 40px rgba(0,0,0,.55), inset 0 0 0 2px #000;
+}
+.reload-logo::before {
+  /* spinning halo */
+  content:""; 
+  position: absolute; 
+  inset: -10px; 
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #ff6a00, #ffb100, #1de9f7, #ff6a00);
+  -webkit-mask: radial-gradient(circle at center, transparent 58%, #000 60%);
+          mask: radial-gradient(circle at center, transparent 58%, #000 60%);
+  animation: spin 1.4s linear infinite;
+  filter: blur(.6px);
+}
+.reload-phi {
+  font-size: 64px; 
+  font-weight: 900; 
+  line-height: 1;
+  background: linear-gradient(180deg,#fff,#ccc);
+  -webkit-background-clip:text; 
+  background-clip:text; 
+  color: transparent;
+  text-shadow: 0 2px 16px rgba(255,255,255,.12);
+  transform: translateY(-2px);
+}
+.reload-title {
+  font-weight: 900; 
+  letter-spacing: .25em; 
+  color: #eaeaea;
+}
+.reload-sub {
+  font-size: 12px; 
+  color: #b9b9b9; 
+  letter-spacing: .08em;
+}
+@keyframes spin { 
+  to { 
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- RELOAD (inside watch) ---------- */
+.reload-wrap-watch {
+  display: grid; 
+  place-items: center; 
+  gap: 8px;
+}
+.reload-logo-watch {
+  --size: 80px;
+  width: var(--size); 
+  height: var(--size);
+  border-radius: 50%;
+  position: relative;
+  display: grid; 
+  place-items: center;
+  background: radial-gradient(100% 100% at 50% 40%, #171717 0%, #080808 70%, #000 100%);
+  box-shadow: 0 6px 24px rgba(0,0,0,.55), inset 0 0 0 2px #000;
+}
+    .reload-logo-watch::before {
+      /* spinning halo */
+      content:"";
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, #8b5cf6, #a855f7, #c084fc, #8b5cf6);
+      -webkit-mask: radial-gradient(circle at center, transparent 58%, #000 60%);
+              mask: radial-gradient(circle at center, transparent 58%, #000 60%);
+      animation: spin 1.4s linear infinite;
+      filter: blur(.4px);
+    }
+.reload-phi-watch {
+  font-size: 42px; 
+  font-weight: 900; 
+  line-height: 1;
+  background: linear-gradient(180deg,#fff,#ccc);
+  -webkit-background-clip:text; 
+  background-clip:text; 
+  color: transparent;
+  text-shadow: 0 2px 12px rgba(255,255,255,.12);
+  transform: translateY(-1px);
+}
+.reload-title-watch {
+  font-weight: 900; 
+  letter-spacing: .2em; 
+  color: #eaeaea;
+  font-size: 14px;
+}
+.reload-sub-watch {
+  font-size: 10px; 
+  color: #b9b9b9; 
+  letter-spacing: .06em;
+}
+
+/* Print styles for Aptos page PDF export - Simple system print */
+@media print {
+  /* Basic reset */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  html, body {
+    background: white !important;
+    color: black !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #aptos-page {
+    background: white !important;
+    color: black !important;
+    height: auto !important;
+    min-height: auto !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* Hide UI elements */
+  button,
+  .fixed,
+  [class*="fixed"],
+  [class*="PartnershipMural"] {
+    display: none !important;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4;
+    margin: 1.5cm;
+  }
+
+  /* Remove ALL height constraints */
+  * {
+    min-height: auto !important;
+    max-height: none !important;
+  }
+
+  section,
+  [class*="min-h-screen"],
+  [class*="min-h-"],
+  div {
+    min-height: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  /* Allow natural page breaks */
+  section {
+    page-break-before: auto;
+    page-break-after: auto;
+    page-break-inside: auto;
+    break-inside: auto;
+    margin-bottom: 0.5cm;
+    padding: 0.5cm 0;
+  }
+
+  /* Headings - keep with content */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+    color: black !important;
+    margin-top: 0.5cm;
+    margin-bottom: 0.3cm;
+  }
+
+  /* Tables */
+  table {
+    page-break-inside: auto;
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tbody {
+    display: table-row-group;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* Diagrams and SVGs */
+  svg {
+    max-width: 100% !important;
+    height: auto !important;
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+
+  /* Text elements */
+  p, li, td, th, span, div, pre, code, label {
+    color: black !important;
+  }
+
+  /* Backgrounds */
+  .bg-white,
+  .bg-gray-50,
+  .bg-gray-100,
+  [class*="bg-"] {
+    background: white !important;
+  }
+
+  /* Borders */
+  .border-black,
+  .border-black\/20,
+  .border-2,
+  [class*="border-"] {
+    border-color: black !important;
+  }
+
+  /* Remove all overflow constraints */
+  [class*="overflow"],
+  [style*="overflow"] {
+    overflow: visible !important;
+  }
+
+  /* Ensure sections are visible and flow naturally */
+  section {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+  }
+
+  /* Make sure all divs inside sections are visible */
+  section > * {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* Keep flex/grid but ensure content flows */
+  [class*="flex"] {
+    display: flex !important;
+    flex-wrap: wrap !important;
+  }
+
+  [class*="grid"] {
+    display: grid !important;
+  }
+
+  /* Ensure all content is visible and printable */
+  #aptos-page,
+  #aptos-page * {
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* Force all sections to have content height */
+  section {
+    display: block !important;
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  /* Ensure motion divs don't hide content */
+  [class*="motion"] {
+    display: block !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

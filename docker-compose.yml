@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: wire2-postgres
+    environment:
+      POSTGRES_DB: wire2
+      POSTGRES_USER: wire2_user
+      POSTGRES_PASSWORD: wire2_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wire2_user -d wire2"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wire2-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: wire2-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wire2-network
+
+  # Single WIRE backend (modular monolith)
+  wire-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: wire2-backend
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 8000
+      DATABASE_URL: postgresql://wire2_user:wire2_password@postgres:5432/wire2?schema=public
+      REDIS_URL: redis://redis:6379
+      POSE_V2_SERVICE_URL: ${POSE_V2_SERVICE_URL:-http://host.docker.internal:8000}
+      POSE_V2_ENABLED: ${POSE_V2_ENABLED:-true}
+      AUTH_MODE: ${AUTH_MODE:-demo}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    command: sh -c "npm run db:migrate:deploy && npm run db:seed && npm start"
+    networks:
+      - wire2-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  wire2-network:
+    driver: bridge

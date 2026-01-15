@@ -1,0 +1,2391 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "WIRE API",
+    "version": "1.0.0",
+    "description": "REST API for wire transfer intent management, approvals, voice challenges, audit bundles, API keys, and webhooks.\n\nThis API provides:\n- Transfer intent lifecycle (create, update, execute)\n- Voice challenge and proof submission\n- Approval decisions and token management\n- Beneficiary management\n- Policy configuration and simulation\n- Event chain and audit bundle generation\n- API keys and webhooks (developer platform)\n\nAll endpoints are prefixed with `/api/wire`.\n\n**Authentication:**\n- UI sessions: `Authorization: Bearer <token>`\n- Integrations: `Authorization: Basic base64(<apiKey>:<apiSecret>)` (recommended) or `X-API-KEY: <apiKey>` (legacy)\n\n**Error Format:** All errors follow `{ error: string, code?: string, details?: object }` format.\n**Idempotency:** Mutating endpoints support `X-Idempotency-Key` (where applicable)."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000/api/wire",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Service health and readiness checks"
+    },
+    {
+      "name": "Intents",
+      "description": "Transfer intent management"
+    },
+    {
+      "name": "Challenges",
+      "description": "Voice challenge and proof submission"
+    },
+    {
+      "name": "Decisions",
+      "description": "Approval decisions and token management"
+    },
+    {
+      "name": "Execution",
+      "description": "Intent execution"
+    },
+    {
+      "name": "Events",
+      "description": "Event chain and audit logs"
+    },
+    {
+      "name": "Bundles",
+      "description": "Audit bundle generation"
+    },
+    {
+      "name": "Beneficiaries",
+      "description": "Beneficiary management"
+    },
+    {
+      "name": "Policies",
+      "description": "Policy configuration and risk simulation"
+    },
+    {
+      "name": "API Keys",
+      "description": "Programmatic API keys for integrations"
+    },
+    {
+      "name": "Webhooks",
+      "description": "Webhook configuration, delivery logs, testing, and rotation"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Get service health status",
+        "description": "Returns the health status of dependent services (voice, phone, storage).",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Service health status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceHealth"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intents": {
+      "get": {
+        "tags": ["Intents"],
+        "summary": "List transfer intents",
+        "description": "Returns all transfer intents for the authenticated user's organization, ordered by creation date (newest first).",
+        "operationId": "listIntents",
+        "responses": {
+          "200": {
+            "description": "List of transfer intents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransferIntent"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Intents"],
+        "summary": "Create transfer intent",
+        "description": "Creates a new transfer intent. Requires `intent:create` permission.",
+        "operationId": "createIntent",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateIntentRequest"
+              },
+              "examples": {
+                "ach_transfer": {
+                  "summary": "ACH transfer example",
+                  "value": {
+                    "railsType": "ACH",
+                    "amountMinor": "50000",
+                    "currency": "USD",
+                    "beneficiaryId": "benef_123",
+                    "purpose": "Payment for services rendered"
+                  }
+                },
+                "wire_transfer": {
+                  "summary": "International wire transfer example",
+                  "value": {
+                    "railsType": "WIRE",
+                    "amountMinor": "1000000",
+                    "currency": "USD",
+                    "beneficiaryId": "benef_456",
+                    "purpose": "International vendor payment"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Transfer intent created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferIntent"
+                },
+                "examples": {
+                  "created_intent": {
+                    "summary": "Successfully created intent",
+                    "value": {
+                      "id": "intent_abc123",
+                      "orgId": "org_123",
+                      "createdByUserId": "user_456",
+                      "railsType": "ACH",
+                      "amountMinor": "50000",
+                      "currency": "USD",
+                      "beneficiaryId": "benef_123",
+                      "beneficiaryVersion": 1,
+                      "purpose": "Payment for services rendered",
+                      "status": "DRAFT",
+                      "riskScore": 25,
+                      "riskRationaleJson": {
+                        "factors": ["low_amount", "domestic"],
+                        "details": {},
+                        "scoreBreakdown": {
+                          "base": 20,
+                          "amount": 5,
+                          "total": 25
+                        }
+                      },
+                      "requiredApprovals": 1,
+                      "requiredChallengeLevel": "L1",
+                      "bindingHash": "abc123def456",
+                      "cooldownUntil": null,
+                      "createdAt": "2025-01-01T12:00:00Z",
+                      "updatedAt": "2025-01-01T12:00:00Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "invalid_amount": {
+                    "summary": "Invalid amount format",
+                    "value": {
+                      "error": "amountMinor must match pattern /^\\d+$/",
+                      "code": "INVALID_REQUEST",
+                      "details": {
+                        "field": "amountMinor",
+                        "received": "50.00",
+                        "expected": "numeric string"
+                      }
+                    }
+                  },
+                  "missing_required": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "beneficiaryId is required",
+                      "code": "INVALID_REQUEST",
+                      "details": {
+                        "field": "beneficiaryId"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Beneficiary not found or policy not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "beneficiary_not_found": {
+                    "summary": "Beneficiary not found",
+                    "value": {
+                      "error": "Beneficiary not found",
+                      "code": "BENEFICIARY_NOT_FOUND",
+                      "details": {
+                        "beneficiaryId": "benef_999"
+                      }
+                    }
+                  },
+                  "policy_not_configured": {
+                    "summary": "No policy configured",
+                    "value": {
+                      "error": "No policy configured",
+                      "code": "POLICY_NOT_CONFIGURED"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intents/{id}": {
+      "get": {
+        "tags": ["Intents"],
+        "summary": "Get transfer intent by ID",
+        "description": "Returns a specific transfer intent by ID. Must belong to the authenticated user's organization.",
+        "operationId": "getIntent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Transfer intent ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transfer intent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferIntent"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Intent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Intents"],
+        "summary": "Update transfer intent",
+        "description": "Updates a transfer intent. Requires `intent:create` permission. Updates to binding-critical fields will invalidate approvals and tokens.",
+        "operationId": "updateIntent",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Transfer intent ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateIntentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transfer intent updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferIntent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body or empty patch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Intent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intents/{id}/challenge": {
+      "post": {
+        "tags": ["Challenges"],
+        "summary": "Create voice challenge",
+        "description": "Creates a voice challenge for a transfer intent. Returns challenge text and expected slots for voice verification.",
+        "operationId": "createChallenge",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Transfer intent ID"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateChallengeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Voice challenge created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceChallenge"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Intent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/challenges/{challengeId}/proof": {
+      "post": {
+        "tags": ["Challenges"],
+        "summary": "Submit voice proof",
+        "description": "Submits a voice proof for a challenge. Returns verification scores and proof metadata.",
+        "operationId": "submitProof",
+        "parameters": [
+          {
+            "name": "challengeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Voice challenge ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitProofRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Voice proof submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceProof"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intents/{id}/decision": {
+      "post": {
+        "tags": ["Decisions"],
+        "summary": "Create approval decision",
+        "description": "Creates an approval decision (APPROVE, DENY, or STEP_UP) for a transfer intent. Requires `intent:approve` permission. Returns an approval token if threshold is met and decision is APPROVE.",
+        "operationId": "createDecision",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Transfer intent ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Decision created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Intent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intents/{id}/execute": {
+      "post": {
+        "tags": ["Execution"],
+        "summary": "Execute transfer intent",
+        "description": "Executes a transfer intent using an approval token. Requires `intent:execute` permission. The approval token must be provided in the `X-POSE-APPROVAL` header.",
+        "operationId": "executeIntent",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Transfer intent ID"
+          },
+          {
+            "name": "X-POSE-APPROVAL",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Approval token for execution"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Intent executed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "intentId": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": ["EXECUTED"]
+                    },
+                    "executedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": ["intentId", "status", "executedAt"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing X-POSE-APPROVAL header or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Intent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intents/{id}/events": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "List intent events",
+        "description": "Returns the event chain for a transfer intent, ordered by sequence number.",
+        "operationId": "listIntentEvents",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Transfer intent ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EventLog"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Intent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intents/{id}/bundle": {
+      "post": {
+        "tags": ["Bundles"],
+        "summary": "Generate audit bundle",
+        "description": "Generates an audit bundle for a transfer intent. Requires `intent:view_bundle` permission. The bundle includes a signed manifest of all intent data, events, and proofs.",
+        "operationId": "generateAuditBundle",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Transfer intent ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audit bundle generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditBundle"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Intent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/beneficiaries": {
+      "get": {
+        "tags": ["Beneficiaries"],
+        "summary": "List beneficiaries",
+        "description": "Returns all beneficiaries for the authenticated user's organization.",
+        "operationId": "listBeneficiaries",
+        "responses": {
+          "200": {
+            "description": "List of beneficiaries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Beneficiary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Beneficiaries"],
+        "summary": "Create beneficiary",
+        "description": "Creates a new beneficiary. Requires `beneficiary:create` permission.",
+        "operationId": "createBeneficiary",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBeneficiaryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Beneficiary created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Beneficiary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/beneficiaries/{id}": {
+      "patch": {
+        "tags": ["Beneficiaries"],
+        "summary": "Update beneficiary",
+        "description": "Updates a beneficiary. Requires `beneficiary:create` permission.",
+        "operationId": "updateBeneficiary",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Beneficiary ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBeneficiaryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Beneficiary updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Beneficiary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Beneficiary not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/policies": {
+      "get": {
+        "tags": ["Policies"],
+        "summary": "Get active policy",
+        "description": "Returns the active policy version for the authenticated user's organization.",
+        "operationId": "getActivePolicy",
+        "responses": {
+          "200": {
+            "description": "Active policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyVersion"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No policy configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Policies"],
+        "summary": "Create policy version",
+        "description": "Creates a new policy version. Requires `policy:edit` permission.",
+        "operationId": "createPolicyVersion",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Policy version created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyVersion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/policies/simulate": {
+      "post": {
+        "tags": ["Policies"],
+        "summary": "Simulate risk scoring",
+        "description": "Simulates risk scoring for a transfer configuration without creating an intent.",
+        "operationId": "simulatePolicy",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulatePolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Risk simulation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicySimulationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Beneficiary not found or no policy configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-keys": {
+      "get": {
+        "tags": ["API Keys"],
+        "summary": "List API keys",
+        "description": "Lists API keys for the authenticated organization. Requires `api:view` permission.",
+        "operationId": "listApiKeys",
+        "security": [
+          { "bearerAuth": [] },
+          { "basicAuth": [] },
+          { "apiKeyHeader": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of API keys",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "type": "object" } }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["API Keys"],
+        "summary": "Create API key",
+        "description": "Creates a new API key. Returns `secret` only once. Requires `api:create` permission.",
+        "operationId": "createApiKey",
+        "security": [
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "API key created (secret returned once)",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-keys/{id}/revoke": {
+      "post": {
+        "tags": ["API Keys"],
+        "summary": "Revoke API key",
+        "description": "Revokes an API key. Requires `api:edit` permission.",
+        "operationId": "revokeApiKey",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Revoked", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api-keys/{id}": {
+      "delete": {
+        "tags": ["API Keys"],
+        "summary": "Delete API key",
+        "description": "Deletes an API key. Requires `api:delete` permission.",
+        "operationId": "deleteApiKey",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Deleted", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/webhooks": {
+      "get": {
+        "tags": ["Webhooks"],
+        "summary": "List webhooks",
+        "description": "Lists webhooks for the authenticated organization. Requires `webhook:view` permission.",
+        "operationId": "listWebhooks",
+        "security": [
+          { "bearerAuth": [] },
+          { "basicAuth": [] },
+          { "apiKeyHeader": [] }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of webhooks",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "type": "object" } }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Webhooks"],
+        "summary": "Create webhook",
+        "description": "Creates a webhook and returns `secret` only once. Requires `webhook:create` permission.",
+        "operationId": "createWebhook",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "201": { "description": "Webhook created", "content": { "application/json": { "schema": { "type": "object" } } } }
+        }
+      }
+    },
+    "/webhooks/{id}": {
+      "patch": {
+        "tags": ["Webhooks"],
+        "summary": "Update webhook",
+        "description": "Updates webhook configuration. Requires `webhook:edit` permission.",
+        "operationId": "updateWebhook",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Webhooks"],
+        "summary": "Delete webhook",
+        "description": "Deletes a webhook. Requires `webhook:delete` permission.",
+        "operationId": "deleteWebhook",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Deleted", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/webhooks/{id}/deliveries": {
+      "get": {
+        "tags": ["Webhooks"],
+        "summary": "List webhook deliveries",
+        "description": "Lists recent delivery attempts for a webhook (delivery logs). Requires `webhook:view` permission.",
+        "operationId": "listWebhookDeliveries",
+        "security": [
+          { "bearerAuth": [] },
+          { "basicAuth": [] },
+          { "apiKeyHeader": [] }
+        ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 } }
+        ],
+        "responses": {
+          "200": { "description": "Delivery logs", "content": { "application/json": { "schema": { "type": "array", "items": { "type": "object" } } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/webhooks/{id}/test": {
+      "post": {
+        "tags": ["Webhooks"],
+        "summary": "Send test webhook",
+        "description": "Queues a test delivery to the webhook target. Requires `webhook:edit` permission.",
+        "operationId": "testWebhook",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "202": { "description": "Queued", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/webhooks/{id}/rotate-secret": {
+      "post": {
+        "tags": ["Webhooks"],
+        "summary": "Rotate webhook secret",
+        "description": "Rotates webhook signing secret and returns the new secret once. Requires `webhook:edit` permission.",
+        "operationId": "rotateWebhookSecret",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Rotated", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "UI session auth (Bearer token)."
+      },
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Integration auth: base64(<apiKey>:<apiSecret>)"
+      },
+      "apiKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-KEY",
+        "description": "Legacy integration auth (key-only). Prefer Basic auth."
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable error message"
+          },
+          "code": {
+            "type": "string",
+            "description": "Machine-parseable error code (optional)"
+          },
+          "details": {
+            "type": "object",
+            "description": "Additional error details (optional)"
+          }
+        }
+      },
+      "ServiceHealth": {
+        "type": "object",
+        "required": ["voiceService", "phoneService", "storageService"],
+        "properties": {
+          "voiceService": {
+            "type": "string",
+            "enum": ["healthy", "degraded", "down"],
+            "description": "Voice service health status"
+          },
+          "phoneService": {
+            "type": "string",
+            "enum": ["healthy", "degraded", "down"],
+            "description": "Phone service health status"
+          },
+          "storageService": {
+            "type": "string",
+            "enum": ["healthy", "degraded", "down"],
+            "description": "Storage service health status"
+          }
+        }
+      },
+      "TransferIntent": {
+        "type": "object",
+        "required": [
+          "id",
+          "orgId",
+          "createdByUserId",
+          "railsType",
+          "amountMinor",
+          "currency",
+          "beneficiaryId",
+          "purpose",
+          "status",
+          "riskScore",
+          "riskRationaleJson",
+          "requiredApprovals",
+          "requiredChallengeLevel",
+          "bindingHash",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Transfer intent ID"
+          },
+          "orgId": {
+            "type": "string",
+            "description": "Organization ID"
+          },
+          "createdByUserId": {
+            "type": "string",
+            "description": "User ID who created the intent"
+          },
+          "railsType": {
+            "type": "string",
+            "enum": ["ACH", "WIRE"],
+            "description": "Payment rails type"
+          },
+          "amountMinor": {
+            "type": "string",
+            "pattern": "^\\d+$",
+            "description": "Amount in minor units (e.g., cents) as string"
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "description": "ISO 4217 currency code (e.g., USD)"
+          },
+          "beneficiaryId": {
+            "type": "string",
+            "description": "Beneficiary ID"
+          },
+          "beneficiaryVersion": {
+            "type": "integer",
+            "description": "Beneficiary version snapshot (optional)"
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Transfer purpose description"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "PENDING_PROOF",
+              "CHALLENGING",
+              "PENDING_APPROVALS",
+              "APPROVED",
+              "DENIED",
+              "EXECUTED",
+              "EXPIRED",
+              "CANCELED"
+            ],
+            "description": "Intent status"
+          },
+          "riskScore": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Risk score (0-100)"
+          },
+          "riskRationaleJson": {
+            "$ref": "#/components/schemas/RiskRationale",
+            "description": "Risk scoring rationale"
+          },
+          "requiredApprovals": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Number of required approvals"
+          },
+          "requiredChallengeLevel": {
+            "type": "string",
+            "enum": ["L1", "L2", "L3"],
+            "description": "Required voice challenge level"
+          },
+          "bindingHash": {
+            "type": "string",
+            "description": "Cryptographic hash of binding-critical fields"
+          },
+          "cooldownUntil": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Cooldown expiration timestamp (if applicable)"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp"
+          }
+        }
+      },
+      "RiskRationale": {
+        "type": "object",
+        "required": ["factors", "details", "scoreBreakdown"],
+        "properties": {
+          "factors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of risk factors"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Detailed risk factor information"
+          },
+          "scoreBreakdown": {
+            "type": "object",
+            "required": ["base", "total"],
+            "properties": {
+              "base": {
+                "type": "number",
+                "description": "Base risk score"
+              },
+              "amount": {
+                "type": "number",
+                "description": "Amount-based risk adjustment"
+              },
+              "beneficiary": {
+                "type": "number",
+                "description": "Beneficiary-based risk adjustment"
+              },
+              "rails": {
+                "type": "number",
+                "description": "Rails-based risk adjustment"
+              },
+              "international": {
+                "type": "number",
+                "description": "International transfer risk adjustment"
+              },
+              "timing": {
+                "type": "number",
+                "description": "Timing-based risk adjustment"
+              },
+              "total": {
+                "type": "number",
+                "description": "Total risk score"
+              }
+            }
+          }
+        }
+      },
+      "CreateIntentRequest": {
+        "type": "object",
+        "required": ["railsType", "amountMinor", "beneficiaryId", "purpose"],
+        "properties": {
+          "railsType": {
+            "type": "string",
+            "enum": ["ACH", "WIRE"],
+            "description": "Payment rails type"
+          },
+          "amountMinor": {
+            "type": "string",
+            "pattern": "^\\d+$",
+            "description": "Amount in minor units (e.g., cents) as string"
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "default": "USD",
+            "description": "ISO 4217 currency code"
+          },
+          "beneficiaryId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Beneficiary ID"
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Transfer purpose description"
+          }
+        }
+      },
+      "UpdateIntentRequest": {
+        "type": "object",
+        "properties": {
+          "beneficiaryId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Beneficiary ID"
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Transfer purpose description"
+          },
+          "amountMinor": {
+            "type": "string",
+            "pattern": "^\\d+$",
+            "description": "Amount in minor units (e.g., cents) as string"
+          },
+          "railsType": {
+            "type": "string",
+            "enum": ["ACH", "WIRE"],
+            "description": "Payment rails type"
+          }
+        },
+        "additionalProperties": false,
+        "minProperties": 1,
+        "description": "At least one field must be provided"
+      },
+      "VoiceChallenge": {
+        "type": "object",
+        "required": [
+          "id",
+          "intentId",
+          "language",
+          "level",
+          "grammarVersion",
+          "challengeNonce",
+          "challengeText",
+          "expectedSlotsJson",
+          "expiresAt",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Challenge ID"
+          },
+          "intentId": {
+            "type": "string",
+            "description": "Transfer intent ID"
+          },
+          "language": {
+            "type": "string",
+            "enum": ["EN", "ES"],
+            "description": "Challenge language"
+          },
+          "level": {
+            "type": "string",
+            "enum": ["L1", "L2", "L3"],
+            "description": "Challenge level"
+          },
+          "grammarVersion": {
+            "type": "string",
+            "description": "Grammar version used"
+          },
+          "challengeNonce": {
+            "type": "string",
+            "description": "Challenge nonce for replay protection"
+          },
+          "challengeText": {
+            "type": "string",
+            "description": "Text to be spoken"
+          },
+          "expectedSlotsJson": {
+            "$ref": "#/components/schemas/ExpectedSlots",
+            "description": "Expected slots and prosody modifiers"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Challenge expiration timestamp"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          }
+        }
+      },
+      "ExpectedSlots": {
+        "type": "object",
+        "required": ["slots"],
+        "properties": {
+          "slots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "type", "value", "spoken", "position"],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Slot name"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": ["amount", "digits", "words"],
+                  "description": "Slot type"
+                },
+                "value": {
+                  "type": "string",
+                  "description": "Expected value"
+                },
+                "spoken": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Accepted spoken variations"
+                },
+                "position": {
+                  "type": "integer",
+                  "description": "Position in challenge text"
+                }
+              }
+            }
+          },
+          "prosody_modifier": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["speed", "whisper"],
+                "description": "Prosody modifier type"
+              },
+              "target": {
+                "type": "string",
+                "description": "Target slot or text"
+              },
+              "instruction": {
+                "type": "string",
+                "description": "Modifier instruction"
+              }
+            }
+          }
+        }
+      },
+      "CreateChallengeRequest": {
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": "string",
+            "enum": ["EN", "ES"],
+            "default": "EN",
+            "description": "Challenge language"
+          }
+        }
+      },
+      "VoiceProof": {
+        "type": "object",
+        "required": [
+          "id",
+          "intentId",
+          "challengeId",
+          "userId",
+          "channel",
+          "transcript",
+          "transcriptLanguage",
+          "scoresJson",
+          "deviceMetadataJson",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Proof ID"
+          },
+          "intentId": {
+            "type": "string",
+            "description": "Transfer intent ID"
+          },
+          "challengeId": {
+            "type": "string",
+            "description": "Voice challenge ID"
+          },
+          "userId": {
+            "type": "string",
+            "description": "User ID who submitted the proof"
+          },
+          "channel": {
+            "type": "string",
+            "enum": ["BROWSER", "PHONE"],
+            "description": "Proof submission channel"
+          },
+          "transcript": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Transcribed text"
+          },
+          "transcriptLanguage": {
+            "type": "string",
+            "nullable": true,
+            "description": "Detected transcript language"
+          },
+          "scoresJson": {
+            "$ref": "#/components/schemas/VoiceScores",
+            "description": "Voice verification scores"
+          },
+          "deviceMetadataJson": {
+            "$ref": "#/components/schemas/DeviceMetadata",
+            "description": "Device and session metadata"
+          },
+          "audioEncryptedRef": {
+            "type": "string",
+            "description": "Encrypted audio storage reference (optional)"
+          },
+          "audioHash": {
+            "type": "string",
+            "description": "Audio hash for integrity verification (optional)"
+          },
+          "modelVersion": {
+            "type": "string",
+            "description": "Voice model version used (optional)"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          }
+        }
+      },
+      "VoiceScores": {
+        "type": "object",
+        "required": [
+          "identity_confidence",
+          "liveness_score",
+          "spoof_risk_score",
+          "drift_score",
+          "coercion_risk_score",
+          "challenge_match_score"
+        ],
+        "properties": {
+          "identity_confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Identity confidence score (0-100)"
+          },
+          "liveness_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Liveness detection score (0-100)"
+          },
+          "spoof_risk_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Spoof risk score (0-100)"
+          },
+          "drift_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Voice drift score (0-100)"
+          },
+          "coercion_risk_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Coercion risk score (0-100)"
+          },
+          "challenge_match_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Challenge match score (0-100)"
+          }
+        }
+      },
+      "DeviceMetadata": {
+        "type": "object",
+        "properties": {
+          "ip": {
+            "type": "string",
+            "description": "IP address"
+          },
+          "userAgent": {
+            "type": "string",
+            "description": "User agent string"
+          },
+          "browser": {
+            "type": "string",
+            "description": "Browser name"
+          },
+          "os": {
+            "type": "string",
+            "description": "Operating system"
+          },
+          "callSessionId": {
+            "type": "string",
+            "description": "Phone call session ID"
+          },
+          "callStartedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Call start timestamp"
+          },
+          "callDurationSeconds": {
+            "type": "number",
+            "description": "Call duration in seconds"
+          },
+          "phoneNumber": {
+            "type": "string",
+            "description": "Phone number (masked)"
+          }
+        }
+      },
+      "SubmitProofRequest": {
+        "type": "object",
+        "required": ["transcript"],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": ["BROWSER", "PHONE"],
+            "default": "BROWSER",
+            "description": "Proof submission channel"
+          },
+          "transcript": {
+            "type": "string",
+            "minLength": 1,
+            "default": "",
+            "description": "Transcribed text"
+          },
+          "transcriptLanguage": {
+            "type": "string",
+            "nullable": true,
+            "description": "Detected transcript language"
+          },
+          "deviceMetadataJson": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Device and session metadata"
+          }
+        }
+      },
+      "Decision": {
+        "type": "object",
+        "required": [
+          "id",
+          "intentId",
+          "decisionType",
+          "reasonCodesJson",
+          "approvalTokenHash",
+          "expiresAt",
+          "signerKeyId",
+          "decisionPayloadCanonicalJson",
+          "decisionHash",
+          "signature",
+          "createdByUserId",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Decision ID"
+          },
+          "intentId": {
+            "type": "string",
+            "description": "Transfer intent ID"
+          },
+          "decisionType": {
+            "type": "string",
+            "enum": ["APPROVE", "DENY", "STEP_UP"],
+            "description": "Decision type"
+          },
+          "reasonCodesJson": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Reason codes for the decision"
+          },
+          "approvalTokenHash": {
+            "type": "string",
+            "nullable": true,
+            "description": "Hash of approval token (if APPROVE and threshold met)"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Token expiration timestamp (if applicable)"
+          },
+          "signerKeyId": {
+            "type": "string",
+            "description": "Signing key ID"
+          },
+          "decisionPayloadCanonicalJson": {
+            "type": "string",
+            "description": "Canonical JSON of decision payload"
+          },
+          "decisionHash": {
+            "type": "string",
+            "description": "Hash of decision payload"
+          },
+          "signature": {
+            "type": "string",
+            "description": "Cryptographic signature"
+          },
+          "policyId": {
+            "type": "string",
+            "description": "Policy ID used (optional)"
+          },
+          "policyVersion": {
+            "type": "integer",
+            "description": "Policy version used (optional)"
+          },
+          "riskEngineVersion": {
+            "type": "string",
+            "description": "Risk engine version used (optional)"
+          },
+          "createdByUserId": {
+            "type": "string",
+            "description": "User ID who made the decision"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          }
+        }
+      },
+      "DecisionResponse": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Decision"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "approvalToken": {
+                "type": "string",
+                "description": "Plaintext approval token (only present if APPROVE and threshold met, returned exactly once)"
+              }
+            }
+          }
+        ]
+      },
+      "CreateDecisionRequest": {
+        "type": "object",
+        "required": ["action", "proofId"],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["APPROVE", "DENY", "STEP_UP"],
+            "description": "Decision action"
+          },
+          "proofId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Voice proof ID"
+          },
+          "reasonCodesJson": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Reason codes (optional)"
+          }
+        }
+      },
+      "EventLog": {
+        "type": "object",
+        "required": [
+          "id",
+          "intentId",
+          "seq",
+          "eventType",
+          "payloadCanonicalJson",
+          "prevHash",
+          "eventHash",
+          "createdByUserId",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Event ID"
+          },
+          "intentId": {
+            "type": "string",
+            "description": "Transfer intent ID"
+          },
+          "seq": {
+            "type": "integer",
+            "description": "Event sequence number"
+          },
+          "eventType": {
+            "type": "string",
+            "description": "Event type"
+          },
+          "payloadCanonicalJson": {
+            "type": "string",
+            "description": "Canonical JSON of event payload"
+          },
+          "prevHash": {
+            "type": "string",
+            "nullable": true,
+            "description": "Previous event hash (null for first event)"
+          },
+          "eventHash": {
+            "type": "string",
+            "description": "Hash of this event"
+          },
+          "correlationId": {
+            "type": "string",
+            "description": "Correlation ID for tracing (optional)"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Request ID for tracing (optional)"
+          },
+          "createdByUserId": {
+            "type": "string",
+            "description": "User ID who triggered the event"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          }
+        }
+      },
+      "AuditBundle": {
+        "type": "object",
+        "required": [
+          "id",
+          "intentId",
+          "bundleHash",
+          "manifestCanonicalJson",
+          "manifestSignature",
+          "signerKeyId",
+          "storageRef",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Bundle ID"
+          },
+          "intentId": {
+            "type": "string",
+            "description": "Transfer intent ID"
+          },
+          "bundleHash": {
+            "type": "string",
+            "description": "Hash of bundle manifest"
+          },
+          "manifestCanonicalJson": {
+            "type": "string",
+            "description": "Canonical JSON of bundle manifest"
+          },
+          "manifestSignature": {
+            "type": "string",
+            "description": "Cryptographic signature of manifest"
+          },
+          "signerKeyId": {
+            "type": "string",
+            "description": "Signing key ID"
+          },
+          "storageRef": {
+            "type": "string",
+            "description": "Storage reference for bundle (object store path)"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          }
+        }
+      },
+      "Beneficiary": {
+        "type": "object",
+        "required": [
+          "id",
+          "orgId",
+          "displayName",
+          "country",
+          "railsAllowed",
+          "bankLast4",
+          "bankTokenHash",
+          "version",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "lastChangedAt",
+          "lastChangedBy"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Beneficiary ID"
+          },
+          "orgId": {
+            "type": "string",
+            "description": "Organization ID"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Display name"
+          },
+          "country": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2,
+            "description": "ISO 3166-1 alpha-2 country code"
+          },
+          "railsAllowed": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["ACH", "WIRE"]
+            },
+            "minItems": 1,
+            "description": "Allowed payment rails"
+          },
+          "bankLast4": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 4,
+            "description": "Last 4 digits of bank account"
+          },
+          "bankTokenHash": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Hash of encrypted bank token"
+          },
+          "version": {
+            "type": "integer",
+            "description": "Version number"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["ACTIVE", "LOCKED", "PENDING_VERIFICATION"],
+            "description": "Beneficiary status"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp"
+          },
+          "lastChangedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last change timestamp"
+          },
+          "lastChangedBy": {
+            "type": "string",
+            "description": "User ID who last changed the beneficiary"
+          }
+        }
+      },
+      "CreateBeneficiaryRequest": {
+        "type": "object",
+        "required": [
+          "displayName",
+          "country",
+          "railsAllowed",
+          "bankLast4",
+          "bankTokenHash"
+        ],
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Display name"
+          },
+          "country": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2,
+            "description": "ISO 3166-1 alpha-2 country code"
+          },
+          "railsAllowed": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["ACH", "WIRE"]
+            },
+            "minItems": 1,
+            "description": "Allowed payment rails"
+          },
+          "bankLast4": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 4,
+            "description": "Last 4 digits of bank account"
+          },
+          "bankTokenHash": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Hash of encrypted bank token"
+          }
+        }
+      },
+      "UpdateBeneficiaryRequest": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Display name"
+          },
+          "country": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2,
+            "description": "ISO 3166-1 alpha-2 country code"
+          },
+          "railsAllowed": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["ACH", "WIRE"]
+            },
+            "minItems": 1,
+            "description": "Allowed payment rails"
+          },
+          "bankLast4": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 4,
+            "description": "Last 4 digits of bank account"
+          },
+          "bankTokenHash": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Hash of encrypted bank token"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["ACTIVE", "LOCKED", "PENDING_VERIFICATION"],
+            "description": "Beneficiary status"
+          }
+        },
+        "additionalProperties": false,
+        "minProperties": 1,
+        "description": "At least one field must be provided"
+      },
+      "PolicyVersion": {
+        "type": "object",
+        "required": [
+          "policyId",
+          "version",
+          "effectiveAt",
+          "thresholds",
+          "rules"
+        ],
+        "properties": {
+          "policyId": {
+            "type": "string",
+            "description": "Policy ID"
+          },
+          "version": {
+            "type": "integer",
+            "description": "Policy version number"
+          },
+          "effectiveAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Effective date"
+          },
+          "thresholds": {
+            "$ref": "#/components/schemas/PolicyThresholds",
+            "description": "Policy thresholds"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/PolicyRules",
+            "description": "Policy rules"
+          }
+        }
+      },
+      "PolicyThresholds": {
+        "type": "object",
+        "required": [
+          "amountStepUpMinor",
+          "dualApprovalRiskScore",
+          "criticalRiskScore",
+          "newBeneficiaryDays",
+          "outOfHoursStartHourLocal",
+          "outOfHoursEndHourLocal"
+        ],
+        "properties": {
+          "amountStepUpMinor": {
+            "type": "string",
+            "pattern": "^\\d+$",
+            "description": "Amount threshold for step-up challenge (minor units)"
+          },
+          "dualApprovalRiskScore": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Risk score threshold for dual approval"
+          },
+          "criticalRiskScore": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Critical risk score threshold"
+          },
+          "newBeneficiaryDays": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Days since beneficiary creation to consider 'new'"
+          },
+          "outOfHoursStartHourLocal": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 23,
+            "description": "Out-of-hours start hour (local time, 0-23)"
+          },
+          "outOfHoursEndHourLocal": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 23,
+            "description": "Out-of-hours end hour (local time, 0-23)"
+          }
+        }
+      },
+      "PolicyRules": {
+        "type": "object",
+        "required": [
+          "requireDualApprovalForInternationalWire",
+          "requirePhoneForL3IfMicDenied",
+          "cooldownMinutesForHighRisk",
+          "lockoutAfterFailedAttempts"
+        ],
+        "properties": {
+          "requireDualApprovalForInternationalWire": {
+            "type": "boolean",
+            "description": "Require dual approval for international wire transfers"
+          },
+          "requirePhoneForL3IfMicDenied": {
+            "type": "boolean",
+            "description": "Require phone challenge for L3 if microphone access denied"
+          },
+          "cooldownMinutesForHighRisk": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Cooldown period in minutes for high-risk intents"
+          },
+          "lockoutAfterFailedAttempts": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Number of failed attempts before lockout"
+          }
+        }
+      },
+      "CreatePolicyRequest": {
+        "type": "object",
+        "required": ["thresholds", "rules"],
+        "properties": {
+          "policyId": {
+            "type": "string",
+            "minLength": 1,
+            "default": "policy_acme_v1",
+            "description": "Policy ID"
+          },
+          "thresholds": {
+            "$ref": "#/components/schemas/PolicyThresholds"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/PolicyRules"
+          }
+        }
+      },
+      "SimulatePolicyRequest": {
+        "type": "object",
+        "required": ["railsType", "amountMinor", "beneficiaryId"],
+        "properties": {
+          "railsType": {
+            "type": "string",
+            "enum": ["ACH", "WIRE"],
+            "description": "Payment rails type"
+          },
+          "amountMinor": {
+            "type": "string",
+            "pattern": "^\\d+$",
+            "description": "Amount in minor units (e.g., cents) as string"
+          },
+          "beneficiaryId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Beneficiary ID"
+          }
+        }
+      },
+      "PolicySimulationResponse": {
+        "type": "object",
+        "required": [
+          "riskScore",
+          "riskRationaleJson",
+          "requiredApprovals",
+          "requiredChallengeLevel",
+          "policyId",
+          "policyVersion",
+          "riskEngineVersion",
+          "requestCanonicalJson"
+        ],
+        "properties": {
+          "riskScore": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Calculated risk score"
+          },
+          "riskRationaleJson": {
+            "$ref": "#/components/schemas/RiskRationale",
+            "description": "Risk scoring rationale"
+          },
+          "requiredApprovals": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Required number of approvals"
+          },
+          "requiredChallengeLevel": {
+            "type": "string",
+            "enum": ["L1", "L2", "L3"],
+            "description": "Required voice challenge level"
+          },
+          "policyId": {
+            "type": "string",
+            "description": "Policy ID used"
+          },
+          "policyVersion": {
+            "type": "integer",
+            "description": "Policy version used"
+          },
+          "riskEngineVersion": {
+            "type": "string",
+            "description": "Risk engine version used"
+          },
+          "requestCanonicalJson": {
+            "type": "string",
+            "description": "Canonical JSON of request for audit"
+          }
+        }
+      }
+    }
+  }
+}

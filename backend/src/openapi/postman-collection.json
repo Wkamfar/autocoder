@@ -1,0 +1,789 @@
+{
+  "info": {
+    "name": "WIRE API",
+    "description": "Postman collection for WIRE API - intents, approvals, voice challenges, audit bundles, API keys, and webhooks.\n\nAuth:\n- Recommended: Basic auth using API_KEY + API_SECRET variables\n- UI sessions: set BEARER_TOKEN and switch auth as needed",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "wire-api-v1"
+  },
+  "auth": {
+    "type": "basic",
+    "basic": [
+      {
+        "key": "username",
+        "value": "{{API_KEY}}",
+        "type": "string"
+      },
+      {
+        "key": "password",
+        "value": "{{API_SECRET}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api/wire",
+      "type": "string"
+    },
+    {
+      "key": "API_KEY",
+      "value": "wire_live_your_api_key",
+      "type": "string"
+    },
+    {
+      "key": "API_SECRET",
+      "value": "wkey_secret_your_secret",
+      "type": "string"
+    },
+    {
+      "key": "BEARER_TOKEN",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "X_USER_ID",
+      "value": "user_123",
+      "type": "string"
+    },
+    {
+      "key": "intent_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "beneficiary_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "challenge_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "proof_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "approval_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "api_key_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "webhook_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Get Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Get service health status"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Intents",
+      "item": [
+        {
+          "name": "List Intents",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/intents",
+              "host": ["{{base_url}}"],
+              "path": ["intents"]
+            },
+            "description": "List all transfer intents for the authenticated user's organization"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Intent",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/intents/{{intent_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["intents", "{{intent_id}}"]
+            },
+            "description": "Get a specific transfer intent by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Intent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('intent_id', response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"railsType\": \"ACH\",\n  \"amountMinor\": \"50000\",\n  \"currency\": \"USD\",\n  \"beneficiaryId\": \"{{beneficiary_id}}\",\n  \"purpose\": \"Payment for services rendered\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/intents",
+              "host": ["{{base_url}}"],
+              "path": ["intents"]
+            },
+            "description": "Create a new transfer intent"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Intent",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"purpose\": \"Updated payment purpose\",\n  \"amountMinor\": \"75000\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/intents/{{intent_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["intents", "{{intent_id}}"]
+            },
+            "description": "Update a transfer intent"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Challenges",
+      "item": [
+        {
+          "name": "Create Challenge",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('challenge_id', response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"language\": \"EN\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/intents/{{intent_id}}/challenge",
+              "host": ["{{base_url}}"],
+              "path": ["intents", "{{intent_id}}", "challenge"]
+            },
+            "description": "Create a voice challenge for a transfer intent"
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Proof",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('proof_id', response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel\": \"BROWSER\",\n  \"transcript\": \"Authorize transfer 50000 minor units to beneficiary ending 1234. Nonce 'abc12-def34-ghij56'.\",\n  \"transcriptLanguage\": \"EN\",\n  \"deviceMetadataJson\": {\n    \"ip\": \"192.168.1.1\",\n    \"userAgent\": \"Mozilla/5.0\",\n    \"browser\": \"Chrome\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/challenges/{{challenge_id}}/proof",
+              "host": ["{{base_url}}"],
+              "path": ["challenges", "{{challenge_id}}", "proof"]
+            },
+            "description": "Submit a voice proof for a challenge"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Decisions",
+      "item": [
+        {
+          "name": "Create Decision",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.approvalToken) {",
+                  "        pm.collectionVariables.set('approval_token', response.approvalToken);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"APPROVE\",\n  \"proofId\": \"{{proof_id}}\",\n  \"reasonCodesJson\": [\"low_risk\", \"domestic_transfer\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/intents/{{intent_id}}/decision",
+              "host": ["{{base_url}}"],
+              "path": ["intents", "{{intent_id}}", "decision"]
+            },
+            "description": "Create an approval decision for a transfer intent"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Execution",
+      "item": [
+        {
+          "name": "Execute Intent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              },
+              {
+                "key": "X-POSE-APPROVAL",
+                "value": "{{approval_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/intents/{{intent_id}}/execute",
+              "host": ["{{base_url}}"],
+              "path": ["intents", "{{intent_id}}", "execute"]
+            },
+            "description": "Execute a transfer intent using an approval token"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "List Intent Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/intents/{{intent_id}}/events",
+              "host": ["{{base_url}}"],
+              "path": ["intents", "{{intent_id}}", "events"]
+            },
+            "description": "List all events for a transfer intent"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bundles",
+      "item": [
+        {
+          "name": "Generate Audit Bundle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/intents/{{intent_id}}/bundle",
+              "host": ["{{base_url}}"],
+              "path": ["intents", "{{intent_id}}", "bundle"]
+            },
+            "description": "Generate an audit bundle for a transfer intent"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Beneficiaries",
+      "item": [
+        {
+          "name": "List Beneficiaries",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/beneficiaries",
+              "host": ["{{base_url}}"],
+              "path": ["beneficiaries"]
+            },
+            "description": "List all beneficiaries"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Beneficiary",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('beneficiary_id', response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Acme Corp\",\n  \"country\": \"US\",\n  \"railsAllowed\": [\"ACH\", \"WIRE\"],\n  \"bankLast4\": \"1234\",\n  \"bankTokenHash\": \"abc123def456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/beneficiaries",
+              "host": ["{{base_url}}"],
+              "path": ["beneficiaries"]
+            },
+            "description": "Create a new beneficiary"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Beneficiary",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Acme Corporation Updated\",\n  \"status\": \"ACTIVE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/beneficiaries/{{beneficiary_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["beneficiaries", "{{beneficiary_id}}"]
+            },
+            "description": "Update a beneficiary"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Policies",
+      "item": [
+        {
+          "name": "Get Active Policy",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/policies",
+              "host": ["{{base_url}}"],
+              "path": ["policies"]
+            },
+            "description": "Get the active policy version"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Policy Version",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"policyId\": \"policy_acme_v1\",\n  \"thresholds\": {\n    \"amountStepUpMinor\": \"100000\",\n    \"dualApprovalRiskScore\": 60,\n    \"criticalRiskScore\": 85,\n    \"newBeneficiaryDays\": 30,\n    \"outOfHoursStartHourLocal\": 18,\n    \"outOfHoursEndHourLocal\": 9\n  },\n  \"rules\": {\n    \"requireDualApprovalForInternationalWire\": true,\n    \"requirePhoneForL3IfMicDenied\": true,\n    \"cooldownMinutesForHighRisk\": 15,\n    \"lockoutAfterFailedAttempts\": 3\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/policies",
+              "host": ["{{base_url}}"],
+              "path": ["policies"]
+            },
+            "description": "Create a new policy version"
+          },
+          "response": []
+        },
+        {
+          "name": "Simulate Policy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-USER-ID",
+                "value": "{{X_USER_ID}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"railsType\": \"WIRE\",\n  \"amountMinor\": \"1000000\",\n  \"beneficiaryId\": \"{{beneficiary_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/policies/simulate",
+              "host": ["{{base_url}}"],
+              "path": ["policies", "simulate"]
+            },
+            "description": "Simulate risk scoring without creating an intent"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "API Keys",
+      "item": [
+        {
+          "name": "List API Keys",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api-keys",
+              "host": ["{{base_url}}"],
+              "path": ["api-keys"]
+            },
+            "description": "List API keys (requires api:view)"
+          },
+          "response": []
+        },
+        {
+          "name": "Create API Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My integration key\",\n  \"expiresInDays\": 90\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api-keys",
+              "host": ["{{base_url}}"],
+              "path": ["api-keys"]
+            },
+            "description": "Create API key (secret returned once; requires api:create)"
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke API Key",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api-keys/{{api_key_id}}/revoke",
+              "host": ["{{base_url}}"],
+              "path": ["api-keys", "{{api_key_id}}", "revoke"]
+            },
+            "description": "Revoke API key (requires api:edit)"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete API Key",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api-keys/{{api_key_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api-keys", "{{api_key_id}}"]
+            },
+            "description": "Delete API key (requires api:delete)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "List Webhooks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/webhooks",
+              "host": ["{{base_url}}"],
+              "path": ["webhooks"]
+            },
+            "description": "List webhooks (requires webhook:view)"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Production webhook\",\n  \"url\": \"https://example.com/webhooks/wire\",\n  \"events\": [\"intent.created\", \"intent.approved\", \"intent.executed\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhooks",
+              "host": ["{{base_url}}"],
+              "path": ["webhooks"]
+            },
+            "description": "Create webhook (secret returned once; requires webhook:create)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Webhook",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhooks/{{webhook_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["webhooks", "{{webhook_id}}"]
+            },
+            "description": "Update webhook (requires webhook:edit)"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Webhook",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/webhooks/{{webhook_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["webhooks", "{{webhook_id}}"]
+            },
+            "description": "Delete webhook (requires webhook:delete)"
+          },
+          "response": []
+        },
+        {
+          "name": "List Webhook Deliveries",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/webhooks/{{webhook_id}}/deliveries?limit=25",
+              "host": ["{{base_url}}"],
+              "path": ["webhooks", "{{webhook_id}}", "deliveries"],
+              "query": [
+                { "key": "limit", "value": "25" }
+              ]
+            },
+            "description": "Delivery logs (requires webhook:view)"
+          },
+          "response": []
+        },
+        {
+          "name": "Send Test Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": {
+              "raw": "{{base_url}}/webhooks/{{webhook_id}}/test",
+              "host": ["{{base_url}}"],
+              "path": ["webhooks", "{{webhook_id}}", "test"]
+            },
+            "description": "Queue a test delivery (requires webhook:edit)"
+          },
+          "response": []
+        },
+        {
+          "name": "Rotate Webhook Secret",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": {
+              "raw": "{{base_url}}/webhooks/{{webhook_id}}/rotate-secret",
+              "host": ["{{base_url}}"],
+              "path": ["webhooks", "{{webhook_id}}", "rotate-secret"]
+            },
+            "description": "Rotate signing secret (returned once; requires webhook:edit)"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

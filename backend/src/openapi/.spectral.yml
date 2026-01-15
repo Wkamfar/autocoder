@@ -1,0 +1,50 @@
+extends: ["spectral:oas"]
+rules:
+  # Custom rules for WIRE API
+  operation-operationId-unique: error
+  operation-tags: error
+  operation-description: warn
+  operation-summary: error
+  operation-operationId: error
+  path-params: error
+  parameter-description: warn
+  request-body-name: warn
+  response-contains-header: warn
+  response-contains-property: warn
+  schema-description: warn
+  
+  # Custom rules
+  no-empty-descriptions:
+    description: "Operations should have descriptions"
+    severity: warn
+    given: "$.paths[*][*]"
+    then:
+      field: description
+      function: truthy
+  
+  consistent-error-response:
+    description: "Error responses should follow standard format"
+    severity: error
+    given: "$.paths[*][*].responses[4xx,5xx]"
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          required:
+            - error
+          properties:
+            error:
+              type: string
+            code:
+              type: string
+            details:
+              type: object
+  
+  require-examples:
+    description: "Operations should have request/response examples"
+    severity: warn
+    given: "$.paths[*][*]"
+    then:
+      field: requestBody.content[*].examples
+      function: truthy

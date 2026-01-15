@@ -1,0 +1,4393 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "POSE Human Layer API",
+    "version": "1.0.0",
+    "description": "REST API for the POSE Human Layer blockchain explorer, analytics, and developer tools.\n\nThis API provides comprehensive access to:\n- Block explorer (transactions, blocks, addresses, identities, proofs)\n- Network analytics (TPS, finality, validator metrics)\n- ZK proof analytics (generation rates, circuit modes, verification metrics)\n- Identity analytics (registrations, liveness scores, human weight)\n- Contract interaction (view contracts, call functions, query events)\n- Slashing evidence exploration\n- Real-time updates via WebSocket\n\nAll endpoints return JSON responses following a consistent format with `ok` status field.\nError responses include detailed error messages and appropriate HTTP status codes.\n\n**Rate Limits:** Standard rate limits apply. See rate limiting documentation for details.\n**Authentication:** Currently public access. API key authentication coming in future versions.",
+    "contact": {
+      "name": "POSE API Support",
+      "email": "api-support@pose.network"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001",
+      "description": "Local development server"
+    },
+    {
+      "url": "https://api.testnet.pose.network",
+      "description": "Testnet API server"
+    },
+    {
+      "url": "https://api.pose.network",
+      "description": "Production API server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Explorer",
+      "description": "Block explorer endpoints"
+    },
+    {
+      "name": "Analytics",
+      "description": "Analytics endpoints"
+    },
+    {
+      "name": "Contracts",
+      "description": "Contract interaction endpoints"
+    },
+    {
+      "name": "Slashing",
+      "description": "Slashing evidence endpoints"
+    },
+    {
+      "name": "Frontend",
+      "description": "Frontend-specific endpoints"
+    },
+    {
+      "name": "WebSocket",
+      "description": "WebSocket API"
+    }
+  ],
+  "paths": {
+    "/api/explorer/search": {
+      "get": {
+        "tags": [
+          "Explorer"
+        ],
+        "summary": "Universal search",
+        "description": "Auto-detect query type (transaction hash, block number, address, proof ID) and return appropriate result. Supports transaction hashes (0x + 64 hex), block numbers (numeric), addresses (0x + 40 hex), and proof IDs (0x + 64 hex).",
+        "operationId": "explorer_search",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Search query (transaction hash, block number, address, or proof ID)",
+            "example": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                },
+                "examples": {
+                  "transaction": {
+                    "summary": "Transaction hash search",
+                    "value": {
+                      "ok": true,
+                      "type": "transaction",
+                      "data": {
+                        "hash": "0x1234...",
+                        "blockNumber": 12345,
+                        "status": "success"
+                      }
+                    }
+                  },
+                  "block": {
+                    "summary": "Block number search",
+                    "value": {
+                      "ok": true,
+                      "type": "block",
+                      "data": {
+                        "number": 12345,
+                        "hash": "0xabcd...",
+                        "timestamp": 1699123456
+                      }
+                    }
+                  },
+                  "address": {
+                    "summary": "Address search",
+                    "value": {
+                      "ok": true,
+                      "type": "address",
+                      "data": {
+                        "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+                      }
+                    }
+                  },
+                  "proof": {
+                    "summary": "Proof ID search",
+                    "value": {
+                      "ok": true,
+                      "type": "proof",
+                      "data": {
+                        "proofId": "0x1234...",
+                        "poseId": "0xabcd...",
+                        "status": "Valid"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/transactions": {
+      "get": {
+        "tags": [
+          "Explorer"
+        ],
+        "summary": "List transactions",
+        "description": "List transactions with pagination and optional filtering by type (identity_registration, proof_submission).",
+        "operationId": "explorer_list_transactions",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Page number"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": "Items per page"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "identity_registration",
+                "proof_submission"
+              ]
+            },
+            "description": "Filter by transaction type"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/transactions/{hash}": {
+      "get": {
+        "tags": [
+          "Explorer"
+        ],
+        "summary": "Get transaction detail",
+        "description": "Get detailed information about a specific transaction by hash.",
+        "operationId": "explorer_get_transaction",
+        "parameters": [
+          {
+            "name": "hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[a-fA-F0-9]{64}$"
+            },
+            "description": "Transaction hash"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "transaction"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "transaction": {
+                      "$ref": "#/components/schemas/Transaction"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/transactions/{hash}/trace": {
+      "get": {
+        "tags": [
+          "Explorer"
+        ],
+        "summary": "Get transaction trace",
+        "description": "Get step-by-step execution trace for a transaction, including internal calls and gas usage.",
+        "operationId": "explorer_get_transaction_trace",
+        "parameters": [
+          {
+            "name": "hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[a-fA-F0-9]{64}$"
+            },
+            "description": "Transaction hash"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction trace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "transaction",
+                    "receipt",
+                    "trace"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "transaction": {
+                      "type": "object"
+                    },
+                    "receipt": {
+                      "type": "object"
+                    },
+                    "trace": {
+                      "type": "object",
+                      "properties": {
+                        "steps": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "totalSteps": {
+                          "type": "integer"
+                        },
+                        "totalGasUsed": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/blocks": {
+      "get": {
+        "tags": [
+          "Explorer"
+        ],
+        "summary": "List blocks",
+        "description": "List blocks with pagination, sorted by block number descending.",
+        "operationId": "explorer_list_blocks",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Page number"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100
+            },
+            "description": "Items per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Block list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/blocks/{number}": {
+      "get": {
+        "tags": [
+          "Explorer"
+        ],
+        "summary": "Get block detail",
+        "description": "Get detailed information about a specific block by block number, including all transactions.",
+        "operationId": "explorer_get_block",
+        "parameters": [
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Block number"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Block detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "block"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "block": {
+                      "$ref": "#/components/schemas/Block"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/addresses/{address}": {
+      "get": {
+        "tags": [
+          "Explorer"
+        ],
+        "summary": "Get address detail",
+        "description": "Get information about an address including balance, transaction count, and validator status.",
+        "operationId": "explorer_get_address",
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[a-fA-F0-9]{40}$"
+            },
+            "description": "Ethereum address"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Address detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "address"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "address": {
+                      "$ref": "#/components/schemas/Address"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/addresses/{address}/transactions": {
+      "get": {
+        "tags": [
+          "Explorer"
+        ],
+        "summary": "Get address transactions",
+        "description": "List all transactions for a specific address with pagination.",
+        "operationId": "explorer_get_address_transactions",
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[a-fA-F0-9]{40}$"
+            },
+            "description": "Ethereum address"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Page number"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": "Items per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/identities/{poseId}": {
+      "get": {
+        "tags": [
+          "Explorer"
+        ],
+        "summary": "Get identity detail",
+        "description": "Get information about a POSE identity including commitment, registration date, and proof count.",
+        "operationId": "explorer_get_identity",
+        "parameters": [
+          {
+            "name": "poseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "POSE identity ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Identity detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "identity"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "identity": {
+                      "$ref": "#/components/schemas/Identity"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/identities/{poseId}/proofs": {
+      "get": {
+        "tags": [
+          "Explorer"
+        ],
+        "summary": "Get identity proofs",
+        "description": "List all proofs associated with a specific identity with pagination.",
+        "operationId": "explorer_get_identity_proofs",
+        "parameters": [
+          {
+            "name": "poseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "POSE identity ID"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Page number"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": "Items per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Proof list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "proofs",
+                    "pagination"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "proofs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Proof"
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/proofs": {
+      "get": {
+        "tags": [
+          "Explorer"
+        ],
+        "summary": "List proofs",
+        "description": "List ZK proofs with pagination and optional filtering by status or poseId.",
+        "operationId": "explorer_list_proofs",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Page number"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": "Items per page"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "valid",
+                "invalid"
+              ]
+            },
+            "description": "Filter by proof status"
+          },
+          {
+            "name": "poseId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by POSE identity ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Proof list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "proofs",
+                    "pagination"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "proofs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Proof"
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/proofs/{proofId}": {
+      "get": {
+        "tags": [
+          "Explorer"
+        ],
+        "summary": "Get proof detail",
+        "description": "Get detailed information about a specific ZK proof including proof bytes, public signals, and finality status.",
+        "operationId": "explorer_get_proof",
+        "parameters": [
+          {
+            "name": "proofId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[a-fA-F0-9]{64}$"
+            },
+            "description": "Proof ID (hash)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Proof detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "proof"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "proof": {
+                      "$ref": "#/components/schemas/Proof"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/network/overview": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Network overview",
+        "description": "Get network-wide KPIs including block height, validators, TPS, finality metrics, total proofs, total identities, and slashing events.",
+        "operationId": "analytics_network_overview",
+        "responses": {
+          "200": {
+            "description": "Network overview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "overview"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "overview": {
+                      "$ref": "#/components/schemas/NetworkOverview"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/network/tps": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "TPS time-series",
+        "description": "Get transactions per second time-series data for specified time range.",
+        "operationId": "analytics_network_tps",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "24h",
+                "7d",
+                "30d"
+              ],
+              "default": "24h"
+            },
+            "description": "Time range"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "TPS time-series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeSeriesResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/network/finality": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Finality latency time-series",
+        "description": "Get finality latency time-series data (P50/P90/P99) for specified time range.",
+        "operationId": "analytics_network_finality",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "24h",
+                "7d",
+                "30d"
+              ],
+              "default": "24h"
+            },
+            "description": "Time range"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Finality time-series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeSeriesResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/network/validators": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Validator activity time-series",
+        "description": "Get validator activity time-series data for specified time range.",
+        "operationId": "analytics_network_validators",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "24h",
+                "7d",
+                "30d"
+              ],
+              "default": "24h"
+            },
+            "description": "Time range"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Validator activity time-series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeSeriesResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/network/blocks": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Latest blocks",
+        "description": "Get list of latest blocks for network analytics.",
+        "operationId": "analytics_network_blocks",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": "Number of blocks to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latest blocks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "blocks"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "blocks": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Block"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/network/transactions": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Latest transactions",
+        "description": "Get list of latest transactions for network analytics.",
+        "operationId": "analytics_network_transactions",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": "Number of transactions to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latest transactions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "transactions"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "transactions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Transaction"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/network/block-production": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Block production rate time-series",
+        "description": "Get block production rate time-series data for specified time range.",
+        "operationId": "analytics_network_block_production",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "24h",
+                "7d",
+                "30d"
+              ],
+              "default": "24h"
+            },
+            "description": "Time range"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Block production time-series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeSeriesResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/network/top-validators": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Top validators by activity",
+        "description": "Get list of top validators by block production activity.",
+        "operationId": "analytics_network_top_validators",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            },
+            "description": "Number of validators to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Top validators",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "validators"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "validators": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "address": {
+                            "type": "string"
+                          },
+                          "blocksProduced": {
+                            "type": "integer"
+                          },
+                          "missedBlocks": {
+                            "type": "integer"
+                          },
+                          "uptime": {
+                            "type": "number"
+                          },
+                          "activity": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/validators/overview": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Validator overview",
+        "description": "Get validator analytics overview including total validators, active validators, average uptime, slashing events, and average slashing risk.",
+        "operationId": "analytics_validators_overview",
+        "responses": {
+          "200": {
+            "description": "Validator overview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "overview"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "overview": {
+                      "$ref": "#/components/schemas/ValidatorOverview"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/validators/distribution": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Validator distributions",
+        "description": "Get validator distribution metrics for human weight, uptime, slashing risk, and scatter plot data.",
+        "operationId": "analytics_validators_distribution",
+        "responses": {
+          "200": {
+            "description": "Validator distributions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "distributions"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "distributions": {
+                      "type": "object",
+                      "properties": {
+                        "humanWeight": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "uptime": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "slashingRisk": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        },
+                        "scatter": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/validators/all": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "All validators list",
+        "description": "Get complete list of all validators with detailed metrics including status, uptime, slashing risk, and blocks produced.",
+        "operationId": "analytics_validators_all",
+        "responses": {
+          "200": {
+            "description": "All validators",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "validators"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "validators": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "address": {
+                            "type": "string"
+                          },
+                          "humanWeight": {
+                            "type": "number"
+                          },
+                          "effectiveStake": {
+                            "type": "number"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "JOINING",
+                              "ACTIVE",
+                              "EVICTING",
+                              "INACTIVE"
+                            ]
+                          },
+                          "uptime24h": {
+                            "type": "number"
+                          },
+                          "missedBlocks24h": {
+                            "type": "integer"
+                          },
+                          "offenses7d": {
+                            "type": "integer"
+                          },
+                          "slashingRisk": {
+                            "type": "string",
+                            "enum": [
+                              "low",
+                              "medium",
+                              "high",
+                              "critical"
+                            ]
+                          },
+                          "slashingRiskScore": {
+                            "type": "number"
+                          },
+                          "blocksProduced": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/validators/performance": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Validator performance metrics",
+        "description": "Get validator performance metrics including total blocks produced, missed blocks, miss rate, and top validators.",
+        "operationId": "analytics_validators_performance",
+        "responses": {
+          "200": {
+            "description": "Validator performance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "performance"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "performance": {
+                      "type": "object",
+                      "properties": {
+                        "totalBlocksProduced": {
+                          "type": "integer"
+                        },
+                        "totalBlocksMissed": {
+                          "type": "integer"
+                        },
+                        "averageMissRate": {
+                          "type": "number"
+                        },
+                        "topValidators": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/zk/overview": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "ZK overview",
+        "description": "Get ZK proof analytics overview including total proofs, proofs per second, success rate, failure rate, average proof time, and circuit mode.",
+        "operationId": "analytics_zk_overview",
+        "responses": {
+          "200": {
+            "description": "ZK overview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "overview"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "overview": {
+                      "$ref": "#/components/schemas/ZKOverview"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/zk/proofs": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Proof generation time-series",
+        "description": "Get ZK proof generation time-series data with circuit mode breakdown for specified time range.",
+        "operationId": "analytics_zk_proofs",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "24h",
+                "7d",
+                "30d"
+              ],
+              "default": "24h"
+            },
+            "description": "Time range"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Proof generation time-series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeSeriesResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/zk/circuit-modes": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Circuit mode breakdown",
+        "description": "Get breakdown of proofs by circuit mode (hash_only, identity_only, liveness_only, full).",
+        "operationId": "analytics_zk_circuit_modes",
+        "responses": {
+          "200": {
+            "description": "Circuit mode breakdown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "circuitModes"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "circuitModes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "mode": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "integer"
+                          },
+                          "percentage": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/zk/verification": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Verification metrics",
+        "description": "Get ZK proof verification metrics including average time, P50, P90, P99 percentiles.",
+        "operationId": "analytics_zk_verification",
+        "responses": {
+          "200": {
+            "description": "Verification metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "verification"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "verification": {
+                      "type": "object",
+                      "properties": {
+                        "averageTime": {
+                          "type": "number"
+                        },
+                        "p50": {
+                          "type": "number"
+                        },
+                        "p90": {
+                          "type": "number"
+                        },
+                        "p99": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/zk/success-rate": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Success rate time-series",
+        "description": "Get ZK proof success rate time-series data for specified time range.",
+        "operationId": "analytics_zk_success_rate",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "24h",
+                "7d",
+                "30d"
+              ],
+              "default": "24h"
+            },
+            "description": "Time range"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success rate time-series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeSeriesResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/zk/latest-proofs": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Latest proofs",
+        "description": "Get list of latest ZK proofs for analytics.",
+        "operationId": "analytics_zk_latest_proofs",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": "Number of proofs to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latest proofs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "proofs"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "proofs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Proof"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/zk/identities-by-proofs": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Top identities by proof count",
+        "description": "Get list of top identities ranked by proof count.",
+        "operationId": "analytics_zk_identities_by_proofs",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            },
+            "description": "Number of identities to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Top identities by proof count",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "identities"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "identities": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "poseId": {
+                            "type": "string"
+                          },
+                          "proofCount": {
+                            "type": "integer"
+                          },
+                          "lastProofAt": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/identity/overview": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Identity overview",
+        "description": "Get identity analytics overview including total identities, active identities, average liveness score, and identities registered in last 30 days.",
+        "operationId": "analytics_identity_overview",
+        "responses": {
+          "200": {
+            "description": "Identity overview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "overview"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "overview": {
+                      "$ref": "#/components/schemas/IdentityOverview"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/identity/registrations": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Identity registrations time-series",
+        "description": "Get identity registration time-series data for specified time range. Also supports table format.",
+        "operationId": "analytics_identity_registrations",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "default": "30d"
+            },
+            "description": "Time range"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Limit for table format"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Identity registrations time-series or table",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TimeSeriesResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "ok",
+                        "registrations"
+                      ],
+                      "properties": {
+                        "ok": {
+                          "type": "boolean"
+                        },
+                        "registrations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/identity/liveness": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Liveness metrics",
+        "description": "Get liveness score distribution and metrics including average, P50, P90, P99, and distribution buckets.",
+        "operationId": "analytics_identity_liveness",
+        "responses": {
+          "200": {
+            "description": "Liveness metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "liveness"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "liveness": {
+                      "type": "object",
+                      "properties": {
+                        "average": {
+                          "type": "number"
+                        },
+                        "p50": {
+                          "type": "number"
+                        },
+                        "p90": {
+                          "type": "number"
+                        },
+                        "p99": {
+                          "type": "number"
+                        },
+                        "distribution": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/identity/liveness/trends": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Liveness trends time-series",
+        "description": "Get liveness score trends time-series data for specified time range.",
+        "operationId": "analytics_identity_liveness_trends",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "default": "30d"
+            },
+            "description": "Time range"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liveness trends time-series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeSeriesResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/identity/top-by-liveness": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Top identities by liveness score",
+        "description": "Get list of top identities ranked by liveness score.",
+        "operationId": "analytics_identity_top_by_liveness",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            },
+            "description": "Number of identities to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Top identities by liveness",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "identities"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "identities": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "poseId": {
+                            "type": "string"
+                          },
+                          "livenessScore": {
+                            "type": "number"
+                          },
+                          "humanWeight": {
+                            "type": "number"
+                          },
+                          "lastVerified": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/identity/by-liveness": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Identities sorted by liveness",
+        "description": "Get list of identities sorted by liveness score.",
+        "operationId": "analytics_identity_by_liveness",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": "Number of identities to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Identities by liveness",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "identities"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "identities": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "poseId": {
+                            "type": "string"
+                          },
+                          "livenessScore": {
+                            "type": "number"
+                          },
+                          "humanWeight": {
+                            "type": "number"
+                          },
+                          "lastVerified": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/identity/by-human-weight": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Identities sorted by human weight",
+        "description": "Get list of identities sorted by human weight.",
+        "operationId": "analytics_identity_by_human_weight",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": "Number of identities to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Identities by human weight",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "identities"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "identities": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "poseId": {
+                            "type": "string"
+                          },
+                          "livenessScore": {
+                            "type": "number"
+                          },
+                          "humanWeight": {
+                            "type": "number"
+                          },
+                          "lastVerified": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/analytics/identity/human-weight": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Human weight distribution",
+        "description": "Get human weight distribution metrics including average, median, and distribution buckets.",
+        "operationId": "analytics_identity_human_weight",
+        "responses": {
+          "200": {
+            "description": "Human weight metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "humanWeight"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "humanWeight": {
+                      "type": "object",
+                      "properties": {
+                        "average": {
+                          "type": "number"
+                        },
+                        "median": {
+                          "type": "number"
+                        },
+                        "distribution": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/contracts/{address}": {
+      "get": {
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Get contract detail",
+        "description": "Get detailed information about a smart contract including bytecode, ABI, balance, and verification status.",
+        "operationId": "contracts_get_contract",
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[a-fA-F0-9]{40}$"
+            },
+            "description": "Contract address"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contract detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "contract"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "contract": {
+                      "$ref": "#/components/schemas/Contract"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/contracts/{address}/call": {
+      "post": {
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Call contract function",
+        "description": "Call a read-only contract function with specified parameters and ABI.",
+        "operationId": "contracts_call_function",
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[a-fA-F0-9]{40}$"
+            },
+            "description": "Contract address"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContractCallRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract call result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "result"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "result": {
+                      "$ref": "#/components/schemas/ContractCallResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/contracts/{address}/events": {
+      "get": {
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Get contract events",
+        "description": "Get event logs for a smart contract with optional filtering by topic, fromBlock, and toBlock.",
+        "operationId": "contracts_get_events",
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[a-fA-F0-9]{40}$"
+            },
+            "description": "Contract address"
+          },
+          {
+            "name": "topic",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Event topic filter"
+          },
+          {
+            "name": "fromBlock",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Start block number"
+          },
+          {
+            "name": "toBlock",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "End block number"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contract events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "events"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "address": {
+                            "type": "string"
+                          },
+                          "topics": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "data": {
+                            "type": "string"
+                          },
+                          "blockNumber": {
+                            "type": "string"
+                          },
+                          "transactionHash": {
+                            "type": "string"
+                          },
+                          "transactionIndex": {
+                            "type": "integer"
+                          },
+                          "logIndex": {
+                            "type": "integer"
+                          },
+                          "removed": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/slashing/evidence": {
+      "get": {
+        "tags": [
+          "Slashing"
+        ],
+        "summary": "List slashing evidence",
+        "description": "List all slashing evidence with optional filtering by type, status, subject, date range, and pagination.",
+        "operationId": "slashing_list_evidence",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Page number"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": "Items per page"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "INVALID_PROOF",
+                "EQUIVOCATION",
+                "CHRONIC_POOR_HUMAN_STATE",
+                "OFFLINE_VALIDATOR"
+              ]
+            },
+            "description": "Filter by misbehavior type"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "reviewed",
+                "slashed",
+                "dismissed"
+              ]
+            },
+            "description": "Filter by status"
+          },
+          {
+            "name": "subject",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by subject (validator/prover address)"
+          },
+          {
+            "name": "fromDate",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Filter from timestamp"
+          },
+          {
+            "name": "toDate",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Filter to timestamp"
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "detectedAt",
+                "severity",
+                "status"
+              ],
+              "default": "detectedAt"
+            },
+            "description": "Sort field"
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            },
+            "description": "Sort order"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Slashing evidence list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlashingEvidenceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/explorer/slashing/evidence/{id}": {
+      "get": {
+        "tags": [
+          "Slashing"
+        ],
+        "summary": "Get evidence detail",
+        "description": "Get detailed information about a specific slashing evidence including related evidence for the same subject.",
+        "operationId": "slashing_get_evidence",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Evidence ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Evidence detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "evidence"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "evidence": {
+                      "$ref": "#/components/schemas/SlashingEvidence"
+                    },
+                    "relatedEvidence": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SlashingEvidence"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/frontend/status": {
+      "get": {
+        "tags": [
+          "Frontend"
+        ],
+        "summary": "Frontend status",
+        "description": "Get frontend status including ZK mode, network environment, and backend health.",
+        "operationId": "frontend_status",
+        "responses": {
+          "200": {
+            "description": "Frontend status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "zkMode",
+                    "network",
+                    "backendStatus"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "zkMode": {
+                      "type": "string"
+                    },
+                    "network": {
+                      "type": "string"
+                    },
+                    "backendStatus": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/frontend/metrics": {
+      "get": {
+        "tags": [
+          "Frontend"
+        ],
+        "summary": "Frontend metrics",
+        "description": "Get structured metrics for frontend KPIs including live validators, latest block, ZK proofs per second, and slashing events.",
+        "operationId": "frontend_metrics",
+        "responses": {
+          "200": {
+            "description": "Frontend metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "metrics"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "metrics": {
+                      "type": "object",
+                      "properties": {
+                        "liveValidators": {
+                          "type": "integer"
+                        },
+                        "latestBlock": {
+                          "type": "object"
+                        },
+                        "zkProofsPerSecond": {
+                          "type": "number"
+                        },
+                        "zkMode": {
+                          "type": "string"
+                        },
+                        "slashingEvents24h": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/frontend/metrics/finality": {
+      "get": {
+        "tags": [
+          "Frontend"
+        ],
+        "summary": "Finality time-series",
+        "description": "Get finality latency time-series data for frontend charts.",
+        "operationId": "frontend_metrics_finality",
+        "responses": {
+          "200": {
+            "description": "Finality time-series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TimeSeriesPoint"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/frontend/metrics/proofs": {
+      "get": {
+        "tags": [
+          "Frontend"
+        ],
+        "summary": "Proofs time-series",
+        "description": "Get proofs per second time-series data for frontend charts.",
+        "operationId": "frontend_metrics_proofs",
+        "responses": {
+          "200": {
+            "description": "Proofs time-series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TimeSeriesPoint"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/frontend/governance/slashing/validators": {
+      "get": {
+        "tags": [
+          "Frontend"
+        ],
+        "summary": "Validators list",
+        "description": "Get list of all validators with aggregated data from evidence and metrics.",
+        "operationId": "frontend_validators",
+        "responses": {
+          "200": {
+            "description": "Validators list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "validators"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "validators": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/frontend/governance/slashing/validators/{id}": {
+      "get": {
+        "tags": [
+          "Frontend"
+        ],
+        "summary": "Validator detail",
+        "description": "Get detailed information about a specific validator.",
+        "operationId": "frontend_validator_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Validator ID or address"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Validator detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "validator"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "validator": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/frontend/governance/slashing/validators/{id}/history": {
+      "get": {
+        "tags": [
+          "Frontend"
+        ],
+        "summary": "Validator history",
+        "description": "Get historical data for a specific validator including slashing events and performance metrics.",
+        "operationId": "frontend_validator_history",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Validator ID or address"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Validator history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "history"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "history": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/frontend/zk/identity/metrics": {
+      "get": {
+        "tags": [
+          "Frontend"
+        ],
+        "summary": "Identity metrics",
+        "description": "Get ZK identity-related metrics including committed count, proof success rate, and proof failure rate.",
+        "operationId": "frontend_zk_identity_metrics",
+        "responses": {
+          "200": {
+            "description": "Identity metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "metrics"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "metrics": {
+                      "type": "object",
+                      "properties": {
+                        "committedCount": {
+                          "type": "integer"
+                        },
+                        "proofSuccessRate": {
+                          "type": "number"
+                        },
+                        "proofFailureRate": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/frontend/zk/liveness/metrics": {
+      "get": {
+        "tags": [
+          "Frontend"
+        ],
+        "summary": "Liveness metrics",
+        "description": "Get ZK liveness proof latency metrics including average, P50, P90, P99 percentiles.",
+        "operationId": "frontend_zk_liveness_metrics",
+        "responses": {
+          "200": {
+            "description": "Liveness metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "metrics"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "metrics": {
+                      "type": "object",
+                      "properties": {
+                        "averageLatency": {
+                          "type": "number"
+                        },
+                        "p50Latency": {
+                          "type": "number"
+                        },
+                        "p90Latency": {
+                          "type": "number"
+                        },
+                        "p99Latency": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/frontend/zk/identity/example": {
+      "get": {
+        "tags": [
+          "Frontend"
+        ],
+        "summary": "Example identity",
+        "description": "Get example identity data for display purposes.",
+        "operationId": "frontend_zk_identity_example",
+        "responses": {
+          "200": {
+            "description": "Example identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "identity"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "identity": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "commitment": {
+                          "type": "string"
+                        },
+                        "livenessScore": {
+                          "type": "number"
+                        },
+                        "lastVerified": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/frontend/perf/runs": {
+      "get": {
+        "tags": [
+          "Frontend"
+        ],
+        "summary": "Perf Lab runs",
+        "description": "Get list of Perf Lab performance test runs.",
+        "operationId": "frontend_perf_runs",
+        "responses": {
+          "200": {
+            "description": "Perf Lab runs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "runs"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "runs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/frontend/perf/runs/{id}": {
+      "get": {
+        "tags": [
+          "Frontend"
+        ],
+        "summary": "Perf Lab run detail",
+        "description": "Get detailed information about a specific Perf Lab performance test run.",
+        "operationId": "frontend_perf_run_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Run ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Perf Lab run detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "run"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "run": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/frontend/perf/runs/{id}/metrics": {
+      "get": {
+        "tags": [
+          "Frontend"
+        ],
+        "summary": "Perf Lab run metrics",
+        "description": "Get performance metrics for a specific Perf Lab test run.",
+        "operationId": "frontend_perf_run_metrics",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Run ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Perf Lab run metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "metrics"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "metrics": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/frontend/ops/slos": {
+      "get": {
+        "tags": [
+          "Frontend"
+        ],
+        "summary": "SLOs",
+        "description": "Get Service Level Objectives (SLOs) data.",
+        "operationId": "frontend_ops_slos",
+        "responses": {
+          "200": {
+            "description": "SLOs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "slos"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "slos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/api/frontend/ops/alerts": {
+      "get": {
+        "tags": [
+          "Frontend"
+        ],
+        "summary": "Alerts",
+        "description": "Get operational alerts data.",
+        "operationId": "frontend_ops_alerts",
+        "responses": {
+          "200": {
+            "description": "Alerts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "alerts"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "alerts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/ws": {
+      "get": {
+        "tags": [
+          "WebSocket"
+        ],
+        "summary": "WebSocket Connection",
+        "description": "Establish a WebSocket connection for real-time updates. The server broadcasts events for new blocks, transactions, proofs, validator status changes, slashing events, and metrics updates.\n\n**Connection:** Connect to `ws://localhost:3001/ws` (or `wss://` for production)\n\n**Message Format:** All messages are JSON objects with the following structure:\n```json\n{\n  \"type\": \"block\" | \"transaction\" | \"proof\" | \"validator\" | \"slashing\" | \"metrics\" | \"ping\" | \"pong\",\n  \"data\": { ... },\n  \"timestamp\": 1234567890\n}\n```\n\n**Client Messages:**\n- Send `{\"type\": \"ping\"}` to check connection health. Server responds with `{\"type\": \"pong\"}`\n\n**Server Broadcasts:**\n- `block`: New block mined\n- `transaction`: New transaction confirmed\n- `proof`: New ZK proof submitted\n- `validator`: Validator status changed\n- `slashing`: Slashing event detected\n- `metrics`: Network metrics updated\n\n**Connection Lifecycle:**\n- Server sends ping every 30 seconds to keep connection alive\n- Client should respond with pong\n- Connection closes on error or timeout",
+        "operationId": "websocket_connect",
+        "responses": {
+          "101": {
+            "description": "Switching Protocols - WebSocket connection established"
+          },
+          "400": {
+            "description": "Bad Request - Invalid WebSocket upgrade request"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "ok",
+          "error"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message",
+            "example": "Invalid request parameters"
+          }
+        }
+      },
+      "SearchResult": {
+        "type": "object",
+        "required": [
+          "ok",
+          "type"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "Whether the search was successful"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "transaction",
+              "block",
+              "address",
+              "proof",
+              "unknown"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "description": "Result data (structure varies by type)"
+          },
+          "message": {
+            "type": "string",
+            "description": "Error message if search failed"
+          }
+        }
+      },
+      "Transaction": {
+        "type": "object",
+        "required": [
+          "hash",
+          "from",
+          "status"
+        ],
+        "properties": {
+          "hash": {
+            "type": "string",
+            "pattern": "^0x[a-fA-F0-9]{64}$"
+          },
+          "blockNumber": {
+            "type": "integer",
+            "nullable": true
+          },
+          "blockHash": {
+            "type": "string",
+            "nullable": true
+          },
+          "from": {
+            "type": "string",
+            "pattern": "^0x[a-fA-F0-9]{40}$"
+          },
+          "to": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^0x[a-fA-F0-9]{40}$"
+          },
+          "value": {
+            "type": "string"
+          },
+          "gasLimit": {
+            "type": "string"
+          },
+          "gasPrice": {
+            "type": "string",
+            "nullable": true
+          },
+          "gasUsed": {
+            "type": "string",
+            "nullable": true
+          },
+          "nonce": {
+            "type": "integer"
+          },
+          "data": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "failed",
+              "pending"
+            ]
+          },
+          "timestamp": {
+            "type": "integer",
+            "nullable": true
+          },
+          "type": {
+            "type": "string"
+          },
+          "proofId": {
+            "type": "string",
+            "nullable": true
+          },
+          "identityCommitment": {
+            "type": "string",
+            "nullable": true
+          },
+          "receipt": {
+            "type": "object",
+            "nullable": true
+          },
+          "internalTransactions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "TransactionList": {
+        "type": "object",
+        "required": [
+          "ok",
+          "transactions",
+          "pagination"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "transactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Transaction"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        }
+      },
+      "Block": {
+        "type": "object",
+        "required": [
+          "number",
+          "hash",
+          "timestamp"
+        ],
+        "properties": {
+          "number": {
+            "type": "integer"
+          },
+          "hash": {
+            "type": "string"
+          },
+          "parentHash": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "integer"
+          },
+          "transactionCount": {
+            "type": "integer"
+          },
+          "transactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Transaction"
+            }
+          },
+          "gasUsed": {
+            "type": "string"
+          },
+          "gasLimit": {
+            "type": "string"
+          },
+          "miner": {
+            "type": "string",
+            "nullable": true
+          },
+          "proposer": {
+            "type": "string",
+            "nullable": true
+          },
+          "finalityStatus": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "final"
+            ]
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "confirmations": {
+            "type": "integer"
+          },
+          "difficulty": {
+            "type": "string",
+            "nullable": true
+          },
+          "extraData": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "BlockList": {
+        "type": "object",
+        "required": [
+          "ok",
+          "blocks",
+          "pagination"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Block"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        }
+      },
+      "Address": {
+        "type": "object",
+        "required": [
+          "address",
+          "balance",
+          "transactionCount"
+        ],
+        "properties": {
+          "address": {
+            "type": "string",
+            "pattern": "^0x[a-fA-F0-9]{40}$"
+          },
+          "balance": {
+            "type": "string"
+          },
+          "transactionCount": {
+            "type": "integer"
+          },
+          "isValidator": {
+            "type": "boolean"
+          },
+          "slashingEvidence": {
+            "type": "integer"
+          }
+        }
+      },
+      "Identity": {
+        "type": "object",
+        "required": [
+          "poseId"
+        ],
+        "properties": {
+          "poseId": {
+            "type": "string"
+          },
+          "commitment": {
+            "type": "string",
+            "nullable": true
+          },
+          "registrationDate": {
+            "type": "integer",
+            "nullable": true
+          },
+          "proofCount": {
+            "type": "integer"
+          }
+        }
+      },
+      "Proof": {
+        "type": "object",
+        "required": [
+          "proofId",
+          "poseId",
+          "status"
+        ],
+        "properties": {
+          "proofId": {
+            "type": "string",
+            "pattern": "^0x[a-fA-F0-9]{64}$"
+          },
+          "poseId": {
+            "type": "string"
+          },
+          "packetHash": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "submittedAt": {
+            "type": "integer"
+          },
+          "verifiedAt": {
+            "type": "integer",
+            "nullable": true
+          },
+          "circuitMode": {
+            "type": "string"
+          },
+          "proofBytes": {
+            "type": "string",
+            "nullable": true
+          },
+          "publicSignals": {
+            "type": "object",
+            "nullable": true
+          },
+          "transactionHash": {
+            "type": "string",
+            "nullable": true
+          },
+          "finality": {
+            "type": "object"
+          }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "required": [
+          "page",
+          "limit"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "totalPages": {
+            "type": "integer"
+          },
+          "currentBlock": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "NetworkOverview": {
+        "type": "object",
+        "properties": {
+          "currentBlockHeight": {
+            "type": "integer"
+          },
+          "activeValidators": {
+            "type": "integer"
+          },
+          "currentTPS": {
+            "type": "number"
+          },
+          "averageFinalityP50": {
+            "type": "number"
+          },
+          "averageFinalityP90": {
+            "type": "number"
+          },
+          "totalProofs": {
+            "type": "integer"
+          },
+          "totalIdentities": {
+            "type": "integer"
+          },
+          "slashingEvents24h": {
+            "type": "integer"
+          }
+        }
+      },
+      "TimeSeriesPoint": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "value"
+        ],
+        "properties": {
+          "timestamp": {
+            "type": "integer"
+          },
+          "value": {
+            "type": "number"
+          },
+          "p50": {
+            "type": "number"
+          },
+          "p90": {
+            "type": "number"
+          },
+          "p99": {
+            "type": "number"
+          },
+          "count": {
+            "type": "number"
+          },
+          "hashOnly": {
+            "type": "number"
+          },
+          "identityOnly": {
+            "type": "number"
+          },
+          "livenessOnly": {
+            "type": "number"
+          },
+          "full": {
+            "type": "number"
+          }
+        }
+      },
+      "TimeSeriesResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "data",
+          "range"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeSeriesPoint"
+            }
+          },
+          "range": {
+            "type": "string",
+            "enum": [
+              "24h",
+              "7d",
+              "30d"
+            ]
+          }
+        }
+      },
+      "ValidatorOverview": {
+        "type": "object",
+        "properties": {
+          "totalValidators": {
+            "type": "integer"
+          },
+          "activeValidators": {
+            "type": "integer"
+          },
+          "averageUptime": {
+            "type": "number"
+          },
+          "slashingEvents": {
+            "type": "integer"
+          },
+          "validatorsWithEvidence": {
+            "type": "integer"
+          },
+          "averageSlashingRisk": {
+            "type": "number"
+          }
+        }
+      },
+      "ZKOverview": {
+        "type": "object",
+        "properties": {
+          "totalProofs": {
+            "type": "integer"
+          },
+          "proofsPerSecond": {
+            "type": "number"
+          },
+          "successRate": {
+            "type": "number"
+          },
+          "failureRate": {
+            "type": "number"
+          },
+          "averageProofTime": {
+            "type": "number"
+          },
+          "circuitMode": {
+            "type": "string"
+          }
+        }
+      },
+      "IdentityOverview": {
+        "type": "object",
+        "properties": {
+          "totalIdentities": {
+            "type": "integer"
+          },
+          "activeIdentities": {
+            "type": "integer"
+          },
+          "averageLivenessScore": {
+            "type": "number"
+          },
+          "identitiesLast30d": {
+            "type": "integer"
+          }
+        }
+      },
+      "Contract": {
+        "type": "object",
+        "required": [
+          "address",
+          "isContract"
+        ],
+        "properties": {
+          "address": {
+            "type": "string",
+            "pattern": "^0x[a-fA-F0-9]{40}$"
+          },
+          "isContract": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "balance": {
+            "type": "string"
+          },
+          "creationTx": {
+            "type": "object",
+            "nullable": true
+          },
+          "abi": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "verified": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ContractCallRequest": {
+        "type": "object",
+        "required": [
+          "functionName",
+          "abi"
+        ],
+        "properties": {
+          "functionName": {
+            "type": "string"
+          },
+          "params": {
+            "type": "array",
+            "items": {}
+          },
+          "abi": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "ContractCallResult": {
+        "type": "object",
+        "required": [
+          "functionName",
+          "result"
+        ],
+        "properties": {
+          "functionName": {
+            "type": "string"
+          },
+          "params": {
+            "type": "array"
+          },
+          "result": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "raw": {
+            "type": "string"
+          }
+        }
+      },
+      "SlashingEvidence": {
+        "type": "object",
+        "required": [
+          "evidenceId",
+          "misbehaviorType",
+          "subject",
+          "subjectType",
+          "severity",
+          "status"
+        ],
+        "properties": {
+          "evidenceId": {
+            "type": "string"
+          },
+          "misbehaviorType": {
+            "type": "string",
+            "enum": [
+              "INVALID_PROOF",
+              "EQUIVOCATION",
+              "CHRONIC_POOR_HUMAN_STATE",
+              "OFFLINE_VALIDATOR"
+            ]
+          },
+          "subject": {
+            "type": "string"
+          },
+          "subjectType": {
+            "type": "string",
+            "enum": [
+              "prover",
+              "validator"
+            ]
+          },
+          "evidence": {
+            "type": "object"
+          },
+          "onChainRefs": {
+            "type": "object"
+          },
+          "detectedAt": {
+            "type": "integer"
+          },
+          "reporter": {
+            "type": "string",
+            "nullable": true
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "reviewed",
+              "slashed",
+              "dismissed"
+            ]
+          },
+          "evidenceHash": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SlashingEvidenceList": {
+        "type": "object",
+        "required": [
+          "ok",
+          "evidence",
+          "pagination"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SlashingEvidence"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        }
+      },
+      "WebSocketMessage": {
+        "type": "object",
+        "required": [
+          "type",
+          "timestamp"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "block",
+              "transaction",
+              "proof",
+              "validator",
+              "slashing",
+              "metrics",
+              "ping",
+              "pong"
+            ],
+            "description": "Message type"
+          },
+          "data": {
+            "type": "object",
+            "description": "Event-specific data payload",
+            "additionalProperties": true
+          },
+          "timestamp": {
+            "type": "integer",
+            "description": "Unix timestamp in milliseconds"
+          }
+        },
+        "examples": [
+          {
+            "summary": "New block event",
+            "value": {
+              "type": "block",
+              "data": {
+                "event": "new_block",
+                "block": {
+                  "number": 12345,
+                  "hash": "0x1234...",
+                  "timestamp": 1699123456000
+                }
+              },
+              "timestamp": 1699123456000
+            }
+          },
+          {
+            "summary": "New transaction event",
+            "value": {
+              "type": "transaction",
+              "data": {
+                "event": "new_transaction",
+                "transaction": {
+                  "hash": "0xabcd...",
+                  "blockNumber": 12345,
+                  "status": "success"
+                }
+              },
+              "timestamp": 1699123456000
+            }
+          },
+          {
+            "summary": "New proof event",
+            "value": {
+              "type": "proof",
+              "data": {
+                "event": "new_proof",
+                "proof": {
+                  "proofId": "0x5678...",
+                  "poseId": "0x9abc...",
+                  "status": "Valid"
+                }
+              },
+              "timestamp": 1699123456000
+            }
+          },
+          {
+            "summary": "Validator status change",
+            "value": {
+              "type": "validator",
+              "data": {
+                "event": "validator_status_change",
+                "validator": {
+                  "address": "0xdef0...",
+                  "status": "active",
+                  "stake": "1000000"
+                }
+              },
+              "timestamp": 1699123456000
+            }
+          },
+          {
+            "summary": "Slashing event",
+            "value": {
+              "type": "slashing",
+              "data": {
+                "event": "slashing_event",
+                "evidence": {
+                  "id": "ev-123",
+                  "type": "DOUBLE_SUBMISSION",
+                  "severity": "high"
+                }
+              },
+              "timestamp": 1699123456000
+            }
+          },
+          {
+            "summary": "Metrics update",
+            "value": {
+              "type": "metrics",
+              "data": {
+                "event": "metrics_update",
+                "metrics": {
+                  "tps": 10.5,
+                  "finalityP50": 2.1,
+                  "activeValidators": 50
+                }
+              },
+              "timestamp": 1699123456000
+            }
+          },
+          {
+            "summary": "Ping message",
+            "value": {
+              "type": "ping",
+              "timestamp": 1699123456000
+            }
+          },
+          {
+            "summary": "Pong response",
+            "value": {
+              "type": "pong",
+              "data": {
+                "message": "connected",
+                "clientId": "192.168.1.1"
+              },
+              "timestamp": 1699123456000
+            }
+          }
+        ]
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad request - invalid parameters",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "ok": false,
+              "error": "Invalid request parameters"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "ok": false,
+              "error": "Resource not found"
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "ok": false,
+              "error": "Internal server error"
+            }
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "Service unavailable - metrics disabled or service down",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "ok": false,
+              "error": "Metrics disabled"
+            }
+          }
+        }
+      }
+    },
+    "parameters": {}
+  }
+}

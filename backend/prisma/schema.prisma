@@ -1,0 +1,1168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  TREASURY_INITIATOR
+  APPROVER
+  AUDITOR
+  READ_ONLY
+  EXECUTOR
+  VIEWER
+}
+
+enum RailsType {
+  ACH
+  WIRE
+}
+
+enum IntentStatus {
+  DRAFT
+  PENDING_PROOF
+  CHALLENGING
+  PENDING_APPROVALS
+  APPROVED
+  DENIED
+  EXECUTED
+  EXPIRED
+  CANCELED
+}
+
+enum ChallengeLevel {
+  L1
+  L2
+  L3
+}
+
+enum ChallengeLanguage {
+  EN
+  ES
+}
+
+enum ProofChannel {
+  BROWSER
+  PHONE
+}
+
+enum PublicIntentStatus {
+  PENDING
+  CLAIMED
+  EXPIRED
+}
+
+enum FastWireStatus {
+  PENDING_APPROVAL
+  PENDING_APPROVER_VERIFICATION
+  BOTH_APPROVED
+  COMPLETED
+  DENIED
+  EXPIRED
+}
+
+enum DomainVerificationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+enum OrgGroupRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum PoseIdentityStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum BeneficiaryStatus {
+  ACTIVE
+  LOCKED
+  PENDING_VERIFICATION
+}
+
+enum DecisionType {
+  APPROVE
+  DENY
+  STEP_UP
+}
+
+enum ExecutionStatus {
+  PENDING
+  SUBMITTED
+  CONFIRMED
+  FAILED
+  RECONCILED
+}
+
+enum BankConnectionStatus {
+  ACTIVE
+  DEGRADED
+  REVOKED
+}
+
+enum ReconciliationExceptionStatus {
+  OPEN
+  RESOLVED
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  DEAD
+}
+
+model Organization {
+  id        String   @id
+  name      String
+  createdAt DateTime @default(now())
+
+  users         User[]
+  beneficiaries Beneficiary[]
+  intents       Intent[]
+  policies      Policy[]
+
+  customDomains CustomDomain[]
+  emailDomains  EmailDomain[]
+  ssoConfig     OrgSsoConfig?
+  orgGroupsOwned OrgGroup[] @relation("OrgGroupOwner")
+  orgGroupMemberships OrgGroupMembership[]
+
+  // Agent 4: hierarchy + org-scoped resources
+  legalEntities LegalEntity[]
+  accounts      FinancialAccount[]
+  apiKeys       ApiKey[]
+  webhooks      Webhook[]
+  invitations   UserInvitation[]
+
+  // Evidence + retention controls
+  complianceRetentionPolicy ComplianceRetentionPolicy?
+  legalHolds                LegalHold[]
+  evidenceDownloads         EvidenceDownload[]
+
+  // Agent 7: bank connectivity primitives
+  bankConnections BankConnection[]
+  bankAccounts    BankAccount[]
+
+  // Agent 6: org-level audit chain (non-intent domains)
+  orgAuditEvents  OrgAuditEvent[]
+}
+
+model User {
+  id        String   @id
+  orgId     String
+  email     String
+  name      String
+  role      UserRole
+  passwordHash String?
+  // Permissions are stored redundantly for demo simplicity; in real life this would be normalized.
+  permissions String[]
+  voiceEnrolled Boolean @default(false)
+  enrolledAt    DateTime?
+  lastActivityAt DateTime?
+  createdAt     DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  createdIntents Intent[] @relation("IntentCreatedBy")
+  events         IntentEvent[]
+  proofs         VoiceProof[]
+  decisions      Decision[]
+  approvals      Approval[]
+  executions     ExecutionLedger[] @relation("ExecutionLedgerExecutedBy")
+  sessions       Session[] @relation("UserSessions")
+  voiceprint     Voiceprint?
+  poseIdentity   PoseIdentity?
+  apiKeys        ApiKey[]
+  webhooks       Webhook[]
+  invitationsSent UserInvitation[] @relation("InvitationsSent")
+
+  // Evidence / compliance
+  auditBundlesCreated   AuditBundle[]     @relation("AuditBundleCreatedBy")
+  legalHoldsCreated     LegalHold[]       @relation("LegalHoldCreatedBy")
+  evidenceDownloads     EvidenceDownload[] @relation("EvidenceDownloadUser")
+
+  // Agent 7: bank connectivity primitives
+  bankConnectionsCreated BankConnection[] @relation("BankConnectionCreatedBy")
+
+  // Agent 6: org-level audit events (actor)
+  orgAuditEventsActed  OrgAuditEvent[] @relation("OrgAuditEventActor")
+
+  // Multi-tenant constraint helper: enables composite foreign keys to enforce same-org relations.
+  @@unique([id, orgId])
+}
+
+model PoseIdentity {
+  poseId     String            @id
+  userId     String            @unique
+  status     PoseIdentityStatus @default(ACTIVE)
+  createdAt  DateTime          @default(now())
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voiceProfiles PoseVoiceProfile[]
+  enrollments  PoseVoiceEnrollment[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model PoseVoiceProfile {
+  id                      String   @id @default(cuid())
+  poseId                  String
+  voiceProfileVersion     Int
+  voiceIdentityCommitment String
+  embeddingBlobEncrypted  String?
+  ihcFeatureCommitment    String
+  modelVersion            String
+  policyVersion           String
+  consentFlagsJson        String
+  createdAt               DateTime @default(now())
+
+  identity PoseIdentity @relation(fields: [poseId], references: [poseId], onDelete: Cascade)
+
+  @@unique([poseId, voiceProfileVersion])
+  @@index([poseId])
+  @@index([createdAt])
+}
+
+model PoseVoiceEnrollment {
+  id                 String   @id
+  poseId             String
+  challengeId        String
+  policyVersion      String
+  toneDurationMs     Int
+  takesMetadataJson  String
+  qualityMetricsJson String
+  clientMetadataJson String
+  createdAt          DateTime @default(now())
+
+  identity PoseIdentity @relation(fields: [poseId], references: [poseId], onDelete: Cascade)
+
+  @@index([poseId])
+  @@index([challengeId])
+  @@index([createdAt])
+}
+
+model PublicIntent {
+  id                    String             @id
+  status                PublicIntentStatus @default(PENDING)
+  // Claim token is only shown once at creation time; store hash for verification.
+  claimTokenHash        String             @unique
+  expiresAt             DateTime
+  claimedAt             DateTime?
+  claimedByUserId       String?
+  claimedToOrgId        String?
+  linkedIntentId        String?
+
+  railsType             RailsType
+  amountMinor           String
+  currency              String
+  purpose               String
+
+  beneficiaryDisplayName String
+  beneficiaryCountry     String
+  beneficiaryBankLast4   String
+  beneficiaryTokenHash   String
+
+  requestorEmail        String?
+  requestorName         String?
+  createdAt             DateTime           @default(now())
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model FastWire {
+  id                        String          @id
+  status                    FastWireStatus  @default(PENDING_APPROVAL)
+  role                      String          // REQUESTOR, APPROVER
+  
+  // Amount & Purpose
+  amountMinor               String
+  currency                  String
+  purpose                   String
+  
+  // Requestor Info
+  requestorEmail            String
+  requestorName             String?
+  requestorAccountNumberHash String
+  requestorRoutingNumberHash String
+  requestorBankName         String?
+  requestorPoseTxHash       String?  // POSE network TX hash (initiate intent)
+  requestorVoiceProofId     String?
+  requestorEmailVerified    Boolean         @default(false)
+  requestorEmailVerifiedAt  DateTime?
+  
+  // Beneficiary Info (Email-based)
+  beneficiaryEmail          String
+  
+  // Approver Info
+  approverEmail             String?
+  approverName              String?
+  approverAccountNumberHash String?
+  approverRoutingNumberHash String?
+  approverBankName          String?
+  approverPoseTxHash        String?  // POSE network TX hash (receive/approve)
+  approverEmailVerified     Boolean         @default(false)
+  approverEmailVerifiedAt   DateTime?
+  
+  // Approval Token
+  approvalTokenHash         String          @unique
+  
+  // Final Approval (Links all TXs)
+  finalApprovalPoseTxHash   String?
+  
+  // Timestamps
+  createdAt                 DateTime        @default(now())
+  approvedAt                DateTime?
+  completedAt               DateTime?
+  
+  @@index([approvalTokenHash])
+  @@index([requestorEmail])
+  @@index([beneficiaryEmail])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model CustomDomain {
+  id          String                   @id
+  orgId       String
+  domain      String
+  status      DomainVerificationStatus @default(PENDING)
+  // Verification uses a TXT record:
+  // _wire.<domain> TXT <verificationToken>
+  verificationToken String
+  verifiedAt   DateTime?
+  lastCheckedAt DateTime?
+  lastError    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId, domain])
+  @@index([orgId])
+  @@index([domain])
+  @@index([status])
+}
+
+model EmailDomain {
+  id          String                   @id
+  orgId       String
+  domain      String
+  status      DomainVerificationStatus @default(PENDING)
+
+  // DNS-based verification tokens/records (Stripe-like):
+  // - SPF: TXT @ "v=spf1 include:wire.pose.xyz -all" (example)
+  // - DKIM: TXT <selector>._domainkey "<publicKey>"
+  // - DMARC: TXT _dmarc "v=DMARC1; p=none; rua=mailto:..."
+  spfExpectedTxt   String
+  dkimSelector     String
+  dkimPublicKeyPem String
+  dkimPrivateKeyPem String
+  dmarcExpectedTxt String
+
+  verifiedAt   DateTime?
+  lastCheckedAt DateTime?
+  lastError    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId, domain])
+  @@index([orgId])
+  @@index([domain])
+  @@index([status])
+}
+
+model OrgSsoConfig {
+  id                 String   @id
+  orgId              String   @unique
+  enforced           Boolean  @default(false)
+  allowedEmailDomains String[] // e.g. ["acme.com", "subsidiary.co"]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+}
+
+model OrgGroup {
+  id          String   @id
+  ownerOrgId  String
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  ownerOrg Organization @relation("OrgGroupOwner", fields: [ownerOrgId], references: [id])
+  memberships OrgGroupMembership[]
+
+  @@index([ownerOrgId])
+}
+
+model OrgGroupMembership {
+  id         String       @id
+  groupId    String
+  orgId      String
+  role       OrgGroupRole @default(MEMBER)
+  createdAt  DateTime     @default(now())
+
+  group OrgGroup @relation(fields: [groupId], references: [id])
+  org   Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([groupId, orgId])
+  @@index([groupId])
+  @@index([orgId])
+}
+
+model Voiceprint {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  speakerId         String?
+  speakerIdEncrypted String?
+  enrolledAt        DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Beneficiary {
+  id            String           @id
+  orgId         String
+  displayName   String
+  country       String
+  railsAllowed  RailsType[]
+  bankLast4     String
+  bankTokenHash String
+  version       Int
+  status        BeneficiaryStatus
+  createdAt     DateTime
+  updatedAt     DateTime
+  lastChangedAt DateTime
+  lastChangedBy String
+
+  org Organization @relation(fields: [orgId], references: [id])
+  versions BeneficiaryVersion[]
+  intents  Intent[]
+
+  // Multi-tenant constraint helper: enables composite FK from Intent(orgId, beneficiaryId) -> Beneficiary(orgId, id).
+  @@unique([id, orgId])
+  @@index([orgId])
+}
+
+model BeneficiaryVersion {
+  id            String   @id
+  beneficiaryId String
+  orgId         String
+  version       Int
+  snapshotJson  String
+  createdAt     DateTime @default(now())
+  createdBy     String
+
+  beneficiary Beneficiary @relation(fields: [beneficiaryId, orgId], references: [id, orgId])
+
+  @@unique([id, orgId])
+  @@index([orgId])
+}
+
+model Intent {
+  id                 String       @id
+  orgId              String
+  createdByUserId    String
+  railsType          RailsType
+  amountMinor        String
+  currency           String
+  beneficiaryId      String
+  beneficiaryVersion Int?
+  purpose            String
+  status             IntentStatus
+  riskScore          Int
+  riskRationaleJson  String
+  requiredApprovals  Int
+  requiredChallengeLevel ChallengeLevel
+  bindingHash        String
+  cooldownUntil      DateTime?
+  version            Int          @default(1)
+  createdAt          DateTime
+  updatedAt          DateTime
+
+  org Organization @relation(fields: [orgId], references: [id])
+  // Enforce same-org initiator + beneficiary at the DB layer via composite FKs.
+  createdBy User @relation("IntentCreatedBy", fields: [createdByUserId, orgId], references: [id, orgId])
+  beneficiary Beneficiary @relation(fields: [beneficiaryId, orgId], references: [id, orgId])
+
+  challenges VoiceChallenge[]
+  proofs     VoiceProof[]
+  decisions  Decision[]
+  events     IntentEvent[]
+  approvalTokens ApprovalToken[]
+  bundles    AuditBundle[]
+  approvals  Approval[]
+  executionLedger ExecutionLedger[]
+
+  @@unique([id, orgId])
+  @@index([orgId])
+}
+
+model VoiceChallenge {
+  id               String            @id
+  intentId         String
+  orgId            String
+  language         ChallengeLanguage
+  level            ChallengeLevel
+  grammarVersion   String
+  challengeNonce   String
+  challengeText    String
+  expectedSlotsJson String
+  expiresAt        DateTime
+  createdAt        DateTime
+  attemptCount     Int               @default(0)
+  lockedUntil      DateTime?
+
+  intent Intent @relation(fields: [intentId, orgId], references: [id, orgId])
+  proofs VoiceProof[]
+
+  @@unique([id, orgId])
+  @@index([orgId])
+}
+
+model VoiceProof {
+  id                String       @id
+  intentId           String
+  challengeId        String
+  orgId              String
+  userId             String
+  channel            ProofChannel
+  transcript         String
+  transcriptLanguage String?
+  scoresJson         String
+  deviceMetadataJson String
+  audioEncryptedRef  String?
+  audioHash          String?
+  modelVersion       String?
+  createdAt          DateTime
+
+  intent Intent @relation(fields: [intentId, orgId], references: [id, orgId])
+  challenge VoiceChallenge @relation(fields: [challengeId, orgId], references: [id, orgId])
+  user User @relation(fields: [userId, orgId], references: [id, orgId])
+
+  @@unique([id, orgId])
+  @@index([orgId])
+}
+
+model Decision {
+  id                       String       @id
+  intentId                  String
+  orgId                     String
+  decisionType              DecisionType
+  reasonCodesJson           String
+  approvalTokenHash         String?
+  expiresAt                 DateTime?
+  signerKeyId               String
+  decisionPayloadCanonicalJson String
+  decisionHash              String
+  signature                 String
+  policyId                  String?
+  policyVersion             Int?
+  riskEngineVersion         String?
+  createdByUserId           String
+  createdAt                 DateTime
+
+  intent Intent @relation(fields: [intentId, orgId], references: [id, orgId])
+  createdBy User @relation(fields: [createdByUserId, orgId], references: [id, orgId])
+  approval Approval?
+
+  @@unique([id, orgId])
+  @@index([orgId])
+}
+
+model ApprovalToken {
+  id          String   @id
+  intentId    String
+  orgId       String
+  tokenHash   String   @unique
+  bindingHash String
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  invalidatedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  intent Intent @relation(fields: [intentId, orgId], references: [id, orgId])
+
+  @@unique([id, orgId])
+  @@index([orgId])
+}
+
+model IntentEvent {
+  id                   String   @id
+  intentId              String
+  orgId                String
+  seq                  Int
+  eventType            String
+  payloadCanonicalJson String
+  prevHash             String?
+  eventHash            String
+  // Agent 11: on-chain anchoring (POSE EvidenceRegistry) linkage
+  poseAnchorTxHash     String?
+  poseAnchoredAt       DateTime?
+  poseAnchorLastError  String?
+  correlationId        String?
+  requestId            String?
+  createdByUserId      String?
+  createdAt            DateTime
+
+  intent Intent @relation(fields: [intentId, orgId], references: [id, orgId])
+  createdBy User? @relation(fields: [createdByUserId, orgId], references: [id, orgId])
+
+  @@unique([intentId, seq])
+  @@unique([id, orgId])
+  @@index([orgId])
+}
+
+model AuditBundle {
+  id                   String   @id
+  intentId             String
+  orgId                String
+  mode                 String   @default("full") // "full" | "redacted"
+  bundleHash           String
+  chainHash            String?
+  manifestCanonicalJson String
+  manifestSignature    String
+  signerKeyId          String
+  storageRef           String
+  createdAt            DateTime
+  createdByUserId      String?
+  retentionUntil       DateTime?
+  deletedAt            DateTime?
+
+  intent Intent @relation(fields: [intentId, orgId], references: [id, orgId])
+  createdBy User? @relation("AuditBundleCreatedBy", fields: [createdByUserId, orgId], references: [id, orgId])
+
+  @@index([intentId])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@unique([id, orgId])
+  @@index([orgId])
+}
+
+model ComplianceRetentionPolicy {
+  id                       String   @id
+  orgId                    String   @unique
+  authAuditRetentionDays   Int      @default(180)
+  evidenceBundleRetentionDays Int   @default(365)
+  wormEnabled              Boolean  @default(false)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+}
+
+model LegalHold {
+  id               String   @id
+  orgId            String
+  intentId         String?
+  bundleId         String?
+  reason           String
+  createdByUserId  String
+  createdAt        DateTime @default(now())
+  releasedAt       DateTime?
+  releasedByUserId String?
+
+  org       Organization @relation(fields: [orgId], references: [id])
+  createdBy User         @relation("LegalHoldCreatedBy", fields: [createdByUserId, orgId], references: [id, orgId])
+
+  @@index([orgId])
+  @@index([intentId])
+  @@index([bundleId])
+  @@index([createdAt])
+}
+
+model EvidenceDownload {
+  id        String   @id
+  orgId     String
+  userId    String
+  bundleId  String
+  intentId  String
+  mode      String
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id])
+  user User         @relation("EvidenceDownloadUser", fields: [userId, orgId], references: [id, orgId])
+
+  @@index([orgId])
+  @@index([bundleId])
+  @@index([intentId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// Agent 6: Org-level audit events (tamper-evident chain for non-intent domains)
+// ============================================================================
+
+model OrgAuditEvent {
+  id                   String   @id
+  orgId                String
+  seq                  Int
+  eventType            String
+  payloadCanonicalJson String
+  prevHash             String?
+  eventHash            String
+  correlationId        String?
+  requestId            String?
+  actorUserId          String?
+  createdAt            DateTime @default(now())
+
+  org   Organization @relation(fields: [orgId], references: [id])
+  actor User?        @relation("OrgAuditEventActor", fields: [actorUserId, orgId], references: [id, orgId])
+
+  @@unique([orgId, seq])
+  @@unique([id, orgId])
+  @@index([orgId])
+  @@index([createdAt])
+}
+
+model Policy {
+  id      String @id
+  orgId   String
+  name    String
+  activeVersion Int
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id])
+  versions PolicyVersion[]
+}
+
+model PolicyVersion {
+  id        String @id
+  policyId  String
+  version   Int
+  effectiveAt DateTime
+  thresholdsJson String
+  rulesJson      String
+  createdAt DateTime @default(now())
+
+  policy Policy @relation(fields: [policyId], references: [id])
+
+  @@unique([policyId, version])
+}
+
+model ServiceHealth {
+  id String @id
+  voiceService  String
+  phoneService  String
+  storageService String
+  updatedAt DateTime @default(now())
+}
+
+model Session {
+  id            String   @id
+  userId        String
+  orgId         String
+  tokenHash     String   @unique
+  refreshTokenHash String? @unique
+  deviceFingerprint String?
+  ipAddress     String?
+  userAgent     String?
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  lastActivityAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  // Enforce same-org user sessions at the DB layer.
+  user User @relation("UserSessions", fields: [userId, orgId], references: [id, orgId])
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([refreshTokenHash])
+  @@index([expiresAt])
+}
+
+model AuthAuditLog {
+  id            String   @id
+  userId        String?
+  orgId         String?
+  eventType     String   // "login", "logout", "refresh", "revoke", "failed_login", "permission_denied"
+  ipAddress     String?
+  userAgent     String?
+  sessionId     String?
+  detailsJson   String?  // Additional context
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+model Approval {
+  id            String       @id
+  intentId      String
+  orgId         String
+  approverUserId String
+  bindingHash   String
+  decisionType  DecisionType
+  decisionId    String?
+  invalidatedAt DateTime?
+  createdAt     DateTime    @default(now())
+
+  intent Intent @relation(fields: [intentId, orgId], references: [id, orgId])
+  approver User @relation(fields: [approverUserId, orgId], references: [id, orgId])
+  decision Decision? @relation(fields: [decisionId, orgId], references: [id, orgId])
+
+  @@index([intentId, bindingHash])
+  @@index([approverUserId])
+  @@index([intentId, approverUserId, bindingHash])
+  @@unique([decisionId, orgId])
+  @@unique([id, orgId])
+  @@index([orgId])
+}
+
+model IdempotencyKey {
+  id            String   @id
+  keyHash       String   @unique
+  userId        String
+  orgId         String
+  endpoint      String
+  requestHash   String
+  responseStatus Int
+  responseBody  String?
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime
+
+  @@index([keyHash])
+  @@index([userId, endpoint])
+  @@index([expiresAt])
+}
+
+model ExecutionLedger {
+  id                  String           @id
+  intentId            String
+  orgId               String
+  executionRef        String           @unique
+  status              ExecutionStatus
+  // Bank-grade execution state machine (rail-specific). This is intentionally a string
+  // so we can evolve state machines without Postgres enum churn.
+  state               String?
+  provider            String?
+  approvalTokenHash   String
+  bindingHash         String
+  executedByUserId    String
+  executedAt         DateTime
+  externalRef         String?
+  externalStatus      String?
+  reconciliationStatus String?
+  reconciliationAt    DateTime?
+  errorMessage        String?
+  retryCount          Int              @default(0)
+  metadataJson        String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @default(now())
+
+  intent Intent @relation(fields: [intentId, orgId], references: [id, orgId])
+  executedBy User @relation("ExecutionLedgerExecutedBy", fields: [executedByUserId, orgId], references: [id, orgId])
+
+  @@index([intentId])
+  @@index([executionRef])
+  @@index([status])
+  @@index([reconciliationStatus])
+  @@unique([id, orgId])
+  @@index([orgId])
+}
+
+model BankConnection {
+  id                    String               @id
+  orgId                 String
+  createdByUserId       String
+  provider              String               // e.g. "plaid", "teller", "mx", "mock"
+  institutionName       String
+  status                BankConnectionStatus @default(ACTIVE)
+  consentExpiresAt      DateTime?
+  accessTokenEncrypted  String?
+  refreshTokenEncrypted String?
+  lastSyncAt            DateTime?
+  lastError             String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id])
+  createdBy User   @relation("BankConnectionCreatedBy", fields: [createdByUserId, orgId], references: [id, orgId])
+  accounts BankAccount[]
+
+  @@unique([id, orgId])
+  @@index([orgId])
+  @@index([status])
+  @@index([provider])
+}
+
+model BankAccount {
+  id             String    @id
+  orgId          String
+  connectionId   String
+  name           String
+  mask           String?
+  type           String?
+  currency       String    @default("USD")
+  railsEligible  RailsType[]
+  // Verification/ownership signals from provider (nullable because not all providers/rails support)
+  ownershipJson  String?
+  verificationJson String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id])
+  connection BankConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([id, orgId])
+  @@index([orgId])
+  @@index([connectionId])
+}
+
+model ProviderEvent {
+  id                  String   @id
+  provider            String   // "plaid"/"mock"/etc.
+  providerEventId     String?  // provider's event id (if present)
+  providerEventType   String
+  receivedAt          DateTime @default(now())
+  // Optional scoping + correlation (if the event can be associated)
+  orgId               String?
+  intentId            String?
+  executionRef        String?
+  // Dedupe and audit
+  dedupeKey           String   @unique
+  rawPayloadJson      String
+  normalizedPayloadJson String
+  processedAt         DateTime?
+  processingError     String?
+
+  @@index([provider])
+  @@index([receivedAt])
+  @@index([orgId])
+  @@index([intentId])
+  @@index([executionRef])
+}
+
+model ReconciliationException {
+  id              String                       @id
+  status          ReconciliationExceptionStatus @default(OPEN)
+  orgId           String?
+  executionRef    String?
+  providerEventId String?
+  kind            String                       // "unmatched_event" | "drift" | "conflict" | etc.
+  detailsJson     String
+  createdAt       DateTime                     @default(now())
+  resolvedAt      DateTime?
+  resolvedByUserId String?
+  resolutionJson  String?
+
+  @@index([status])
+  @@index([orgId])
+  @@index([executionRef])
+  @@index([providerEventId])
+}
+
+model ApiKey {
+  id          String    @id
+  orgId       String
+  userId      String
+  name        String
+  keyPrefix   String    // First 8 chars of key (e.g., "wire_live_")
+  keyHash     String    @unique
+  secretHash  String
+  permissions String[]
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id])
+  user User         @relation(fields: [userId, orgId], references: [id, orgId])
+
+  @@index([orgId])
+  @@index([keyHash])
+  @@index([userId])
+}
+
+model Webhook {
+  id             String   @id
+  orgId          String
+  userId         String
+  name           String
+  url            String
+  events         String[] // ["intent.created", "intent.approved", etc.]
+  secretHash     String
+  // Encrypted webhook secret (AES-256-GCM, base64url packed). When present, this is the signing key.
+  // Kept nullable for backwards-compat with existing rows created before encryption existed.
+  secretEncrypted String?
+  active         Boolean  @default(true)
+  lastTriggeredAt DateTime?
+  lastSuccessAt  DateTime?
+  lastFailureAt  DateTime?
+  failureCount   Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  deliveries     WebhookDelivery[]
+
+  org  Organization @relation(fields: [orgId], references: [id])
+  user User         @relation(fields: [userId, orgId], references: [id, orgId])
+
+  @@unique([id, orgId])
+  @@index([orgId])
+  @@index([userId])
+  @@index([active])
+}
+
+model WebhookDelivery {
+  id          String   @id
+  webhookId   String
+  orgId       String
+  eventType   String
+  eventId     String   // ID of the event (intent ID, etc.)
+  payloadJson String
+  status      String   // "pending", "delivered", "failed", "retrying"
+  statusCode  Int?
+  responseBody String?
+  attemptNumber Int     @default(1)
+  nextRetryAt DateTime?
+  deliveredAt DateTime?
+  createdAt   DateTime @default(now())
+
+  webhook Webhook @relation(fields: [webhookId, orgId], references: [id, orgId])
+
+  @@unique([id, orgId])
+  @@index([webhookId])
+  @@index([orgId])
+  @@index([eventId])
+  @@index([status])
+  @@index([nextRetryAt])
+}
+
+model UserInvitation {
+  id            String   @id
+  orgId         String
+  invitedByUserId String
+  email         String
+  role          UserRole
+  permissions   String[]
+  tokenHash     String   @unique
+  expiresAt     DateTime
+  acceptedAt    DateTime?
+  acceptedByUserId String?
+  revokedAt     DateTime?
+  createdAt     DateTime @default(now())
+
+  org       Organization @relation(fields: [orgId], references: [id])
+  invitedBy User         @relation("InvitationsSent", fields: [invitedByUserId, orgId], references: [id, orgId])
+
+  @@index([orgId])
+  @@index([email])
+  @@index([tokenHash])
+  @@index([expiresAt])
+}
+
+// Agent 4: Org → Legal Entities → Accounts hierarchy
+model LegalEntity {
+  id        String   @id
+  orgId     String
+  name      String
+  country   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org      Organization      @relation(fields: [orgId], references: [id])
+  accounts FinancialAccount[]
+
+  @@unique([id, orgId])
+  @@unique([orgId, name])
+  @@index([orgId])
+}
+
+model FinancialAccount {
+  id            String   @id
+  orgId         String
+  legalEntityId String
+  name          String
+  currency      String   @default("USD")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  org         Organization @relation(fields: [orgId], references: [id])
+  legalEntity LegalEntity  @relation(fields: [legalEntityId, orgId], references: [id, orgId])
+
+  @@unique([id, orgId])
+  @@unique([orgId, legalEntityId, name])
+  @@index([orgId])
+  @@index([legalEntityId])
+}
+
+model EmailLog {
+  id          String   @id
+  orgId       String?
+  userId      String?
+  toEmail     String
+  templateType String  // "invitation", "signup_confirmation", "voice_enrollment", etc.
+  subject     String
+  bodyHtml    String?
+  bodyText    String?
+  status      String   // "sent", "failed", "pending"
+  errorMessage String?
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([toEmail])
+  @@index([templateType])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Agent 8: DB-backed job queue for reliable async work (webhooks, notifications, etc.)
+model Job {
+  id         String    @id
+  type       String
+  payloadJson String
+  status     JobStatus @default(QUEUED)
+
+  // When the job is eligible to be run.
+  runAt      DateTime  @default(now())
+
+  // Attempts are incremented when the job is claimed by a worker.
+  attempts   Int       @default(0)
+  maxAttempts Int      @default(10)
+  lastError  String?
+
+  // Cooperative locking (claimed via UPDATE ... FOR UPDATE SKIP LOCKED)
+  lockedAt   DateTime?
+  lockedBy   String?
+
+  completedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Optional dedupe key: allows at-least-once enqueue without duplicates.
+  // Postgres UNIQUE treats NULLs as distinct, so jobs without uniqueKey are unaffected.
+  uniqueKey  String?
+
+  @@unique([type, uniqueKey])
+  @@index([status, runAt])
+  @@index([lockedAt])
+  @@index([type])
+}

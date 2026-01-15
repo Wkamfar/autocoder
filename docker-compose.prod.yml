@@ -1,0 +1,161 @@
+# Production docker-compose configuration
+# Usage: docker compose -f docker-compose.prod.yml up -d
+# 
+# IMPORTANT: Create .env.production with all required variables before starting
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: wire2-postgres-prod
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-wire2}
+      POSTGRES_USER: ${POSTGRES_USER:-wire2_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+      - ./backups:/backups:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wire2_user} -d ${POSTGRES_DB:-wire2}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wire2-network-prod
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: wire2-redis-prod
+    volumes:
+      - redis_data_prod:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wire2-network-prod
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # WIRE Backend
+  wire-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: wire2-backend-prod
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      PORT: 8000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-wire2_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-wire2}?schema=public
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    networks:
+      - wire2-network-prod
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)}).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # WIRE Worker (Agent 8/11 critical): processes jobs (webhooks, bundles, provider events, POSE anchors)
+  wire-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: wire2-worker-prod
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-wire2_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-wire2}?schema=public
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - wire2-network-prod
+    restart: unless-stopped
+    command: ["npm", "run", "start:worker"]
+    # The base backend image includes a HEALTHCHECK that probes the HTTP API.
+    # The worker does not run an HTTP server, so we must disable healthchecks here.
+    healthcheck:
+      disable: true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  # One-off migration runner (explicitly invoked by deploy.sh)
+  wire-migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: wire2-migrate-prod
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-wire2_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-wire2}?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - wire2-network-prod
+    restart: "no"
+    command: ["npm", "run", "db:migrate:deploy"]
+
+volumes:
+  postgres_data_prod:
+    driver: local
+  redis_data_prod:
+    driver: local
+
+networks:
+  wire2-network-prod:
+    driver: bridge

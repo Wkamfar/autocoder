@@ -1,0 +1,61 @@
+name: Validate OpenAPI Specification
+
+on:
+  push:
+    paths:
+      - 'wire2/backend/src/openapi/**'
+      - 'wire2/backend/src/routes/**'
+  pull_request:
+    paths:
+      - 'wire2/backend/src/openapi/**'
+      - 'wire2/backend/src/routes/**'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate OpenAPI Spec
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: wire2/backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: wire2/backend
+        run: npm ci
+
+      - name: Validate OpenAPI syntax
+        working-directory: wire2/backend
+        run: npm run openapi:validate
+
+      - name: Validate against Spectral rules
+        uses: stoplightio/spectral-action@v1
+        with:
+          file_glob: 'wire2/backend/src/openapi/wire.openapi.json'
+          fail_on_severity: error
+
+      - name: Check for breaking changes
+        working-directory: wire2/backend
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Checking for breaking changes..."
+            # Add breaking change detection logic here
+          fi
+
+      - name: Generate types (verify generation works)
+        working-directory: wire2/backend
+        run: npm run openapi:generate-types
+
+      - name: Upload OpenAPI spec as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-spec
+          path: wire2/backend/src/openapi/wire.openapi.json
+          retention-days: 30

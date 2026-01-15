@@ -1,0 +1,681 @@
+// ============================================================================
+// MOCK DATA FOR COMPLETE DEMO
+// ============================================================================
+
+import type {
+  Org,
+  OrgUser,
+  Beneficiary,
+  TransferIntent,
+  VoiceChallenge,
+  VoiceProof,
+  Decision,
+  ApprovalStatus,
+  EventLog,
+  AuditBundle,
+  PolicyVersion,
+  ServiceHealth,
+} from "../types/wire";
+
+export const MOCK_ORG: Org = {
+  id: "org_acme_corp",
+  name: "Acme Corporation",
+  createdAt: "2025-01-15T10:00:00Z",
+};
+
+export const MOCK_USER: OrgUser = {
+  id: "user_alice_smith",
+  email: "alice@acme.com",
+  name: "Alice Smith",
+  role: "TREASURY_INITIATOR",
+  permissions: [
+    "intent:create",
+    "intent:approve",
+    "intent:execute",
+    "beneficiary:create",
+    "evidence:view",
+    "evidence:export_redacted",
+  ],
+};
+
+export const MOCK_APPROVERS: OrgUser[] = [
+  {
+    id: "user_alice_smith",
+    email: "alice@acme.com",
+    name: "Alice Smith",
+    role: "TREASURY_INITIATOR",
+    permissions: [
+      "intent:create",
+      "intent:approve",
+      "intent:execute",
+      "beneficiary:create",
+      "evidence:view",
+      "evidence:export_redacted",
+    ],
+    voiceEnrolled: true,
+    enrolledAt: "2025-01-15T10:30:00Z",
+  },
+  {
+    id: "user_bob_jones",
+    email: "bob@acme.com",
+    name: "Bob Jones",
+    role: "APPROVER",
+    permissions: [
+      "intent:approve",
+      "evidence:view",
+      "evidence:export_redacted",
+    ],
+    voiceEnrolled: true,
+    enrolledAt: "2025-01-15T11:00:00Z",
+  },
+  {
+    id: "user_carol_white",
+    email: "carol@acme.com",
+    name: "Carol White",
+    role: "APPROVER",
+    permissions: [
+      "intent:approve",
+      "evidence:view",
+      "evidence:export_redacted",
+    ],
+    voiceEnrolled: true,
+    enrolledAt: "2025-01-15T11:30:00Z",
+  },
+  {
+    id: "user_admin",
+    email: "admin@acme.com",
+    name: "Admin User",
+    role: "ADMIN",
+    permissions: [
+      "intent:create",
+      "intent:approve",
+      "intent:execute",
+      "beneficiary:create",
+      "beneficiary:lock",
+      "policy:edit",
+      "evidence:view",
+      "evidence:export_full",
+    ],
+    voiceEnrolled: true,
+    enrolledAt: "2025-01-15T09:00:00Z",
+  },
+];
+
+export const MOCK_BENEFICIARIES: Beneficiary[] = [
+  {
+    id: "benef_vendor_abc",
+    orgId: "org_acme_corp",
+    displayName: "Vendor ABC",
+    country: "US",
+    railsAllowed: ["ACH", "WIRE"],
+    bankLast4: "1234",
+    bankTokenHash: "sha256_hash_of_tokenized_bank",
+    version: 1,
+    status: "ACTIVE",
+    createdAt: "2025-01-10T09:00:00Z",
+    updatedAt: "2025-01-10T09:00:00Z",
+    lastChangedAt: "2025-01-10T09:00:00Z",
+    lastChangedBy: "user_admin",
+  },
+  {
+    id: "benef_contractor_xyz",
+    orgId: "org_acme_corp",
+    displayName: "Contractor XYZ",
+    country: "US",
+    railsAllowed: ["ACH"],
+    bankLast4: "5678",
+    bankTokenHash: "sha256_hash_of_tokenized_bank_2",
+    version: 1,
+    status: "ACTIVE",
+    createdAt: "2025-01-12T14:00:00Z",
+    updatedAt: "2025-01-12T14:00:00Z",
+    lastChangedAt: "2025-01-12T14:00:00Z",
+    lastChangedBy: "user_admin",
+  },
+  {
+    id: "benef_international_partner",
+    orgId: "org_acme_corp",
+    displayName: "International Partner Ltd",
+    country: "GB",
+    railsAllowed: ["WIRE"],
+    bankLast4: "9012",
+    bankTokenHash: "sha256_hash_of_tokenized_bank_3",
+    version: 1,
+    status: "ACTIVE",
+    createdAt: "2025-01-18T08:00:00Z",
+    updatedAt: "2025-01-18T08:00:00Z",
+    lastChangedAt: "2025-01-18T08:00:00Z",
+    lastChangedBy: "user_admin",
+  },
+  {
+    id: "benef_recently_changed",
+    orgId: "org_acme_corp",
+    displayName: "Recently Changed Vendor",
+    country: "US",
+    railsAllowed: ["ACH"],
+    bankLast4: "9999",
+    bankTokenHash: "sha256_hash_of_tokenized_bank_4",
+    version: 3,
+    status: "ACTIVE",
+    createdAt: "2025-01-05T10:00:00Z",
+    updatedAt: "2025-01-19T15:00:00Z",
+    lastChangedAt: "2025-01-19T15:00:00Z",
+    lastChangedBy: "user_admin",
+  },
+];
+
+export const MOCK_INTENTS: TransferIntent[] = [
+  {
+    id: "intent_high_risk_wire",
+    orgId: "org_acme_corp",
+    createdByUserId: "user_alice_smith",
+    railsType: "WIRE",
+    amountMinor: "1500000",
+    currency: "USD",
+    beneficiaryId: "benef_international_partner",
+    beneficiaryVersion: 1,
+    purpose: "Q1 2025 vendor payment",
+    status: "PENDING_PROOF",
+    riskScore: 75,
+    riskRationaleJson: {
+      factors: ["amount_threshold", "new_beneficiary", "international", "wire_rail"],
+      details: {
+        amount_threshold: "Amount exceeds $10k threshold",
+        new_beneficiary: "Beneficiary created 2 days ago",
+        international: "International transfer (GB)",
+        wire_rail: "Wire transfer (irreversible)",
+      },
+      scoreBreakdown: {
+        base: 0,
+        amount: 30,
+        beneficiary: 25,
+        rails: 10,
+        international: 10,
+        total: 75,
+      },
+    },
+    requiredApprovals: 2,
+    requiredChallengeLevel: "L3",
+    bindingHash: "sha256_canonical_intent_hash_1",
+    cooldownUntil: null,
+    createdAt: "2025-01-20T09:00:00Z",
+    updatedAt: "2025-01-20T09:00:00Z",
+  },
+  {
+    id: "intent_standard_ach",
+    orgId: "org_acme_corp",
+    createdByUserId: "user_alice_smith",
+    railsType: "ACH",
+    amountMinor: "725000",
+    currency: "USD",
+    beneficiaryId: "benef_vendor_abc",
+    beneficiaryVersion: 1,
+    purpose: "Monthly invoice payment",
+    status: "CHALLENGING",
+    riskScore: 45,
+    bindingHash: "sha256_canonical_intent_hash",
+    riskRationaleJson: {
+      factors: ["amount_threshold", "established_beneficiary"],
+      details: {
+        amount_threshold: "Amount exceeds $5k threshold",
+        established_beneficiary: "Beneficiary created 10 days ago",
+      },
+      scoreBreakdown: {
+        base: 0,
+        amount: 30,
+        beneficiary: 15,
+        total: 45,
+      },
+    },
+    requiredApprovals: 1,
+    requiredChallengeLevel: "L2",
+    cooldownUntil: null,
+    createdAt: "2025-01-20T10:00:00Z",
+    updatedAt: "2025-01-20T10:05:00Z",
+  },
+  {
+    id: "intent_approved_pending_execution",
+    orgId: "org_acme_corp",
+    createdByUserId: "user_alice_smith",
+    railsType: "ACH",
+    amountMinor: "250000",
+    currency: "USD",
+    beneficiaryId: "benef_contractor_xyz",
+    beneficiaryVersion: 1,
+    purpose: "Contractor payment",
+    status: "APPROVED",
+    riskScore: 15,
+    bindingHash: "sha256_canonical_intent_hash_2",
+    riskRationaleJson: {
+      factors: ["low_amount"],
+      details: {
+        low_amount: "Amount below $5k threshold",
+      },
+      scoreBreakdown: {
+        base: 0,
+        amount: 0,
+        beneficiary: 15,
+        total: 15,
+      },
+    },
+    requiredApprovals: 1,
+    requiredChallengeLevel: "L1",
+    cooldownUntil: null,
+    createdAt: "2025-01-20T08:00:00Z",
+    updatedAt: "2025-01-20T08:15:00Z",
+  },
+  {
+    id: "intent_executed",
+    orgId: "org_acme_corp",
+    createdByUserId: "user_alice_smith",
+    railsType: "ACH",
+    amountMinor: "100000",
+    currency: "USD",
+    beneficiaryId: "benef_vendor_abc",
+    beneficiaryVersion: 1,
+    purpose: "Test payment",
+    status: "EXECUTED",
+    riskScore: 5,
+    bindingHash: "sha256_canonical_intent_hash_3",
+    riskRationaleJson: {
+      factors: ["low_amount"],
+      details: {
+        low_amount: "Amount below $1k threshold",
+      },
+      scoreBreakdown: {
+        base: 0,
+        total: 5,
+      },
+    },
+    requiredApprovals: 1,
+    requiredChallengeLevel: "L1",
+    cooldownUntil: null,
+    createdAt: "2025-01-19T14:00:00Z",
+    updatedAt: "2025-01-19T14:10:00Z",
+  },
+];
+
+export const MOCK_CHALLENGES: Record<string, VoiceChallenge> = {
+  intent_high_risk_wire: {
+    id: "challenge_high_risk_wire",
+    intentId: "intent_high_risk_wire",
+    language: "EN",
+    level: "L3",
+    grammarVersion: "v1.0",
+    challengeNonce: "river-glass-ember",
+    challengeText:
+      "FIFTEEN THOUSAND dollars, beneficiary ending NINE ZERO ONE TWO, purpose Q ONE TWO ZERO TWO FIVE, nonce 'river–glass–ember'. Whisper the amount, then say the nonce in reverse order quickly.",
+    expectedSlotsJson: {
+      slots: [
+        {
+          name: "amount",
+          type: "amount",
+          value: "1500000",
+          spoken: ["fifteen", "thousand"],
+          position: 1,
+        },
+        {
+          name: "beneficiary_suffix",
+          type: "digits",
+          value: "9012",
+          spoken: ["nine", "zero", "one", "two"],
+          position: 2,
+        },
+        {
+          name: "nonce",
+          type: "words",
+          value: "river-glass-ember",
+          spoken: ["river", "glass", "ember"],
+          position: 4,
+        },
+        {
+          name: "nonce_reverse",
+          type: "words",
+          value: "ember-glass-river",
+          spoken: ["ember", "glass", "river"],
+          position: 5,
+        },
+      ],
+      prosody_modifier: {
+        type: "whisper",
+        target: "amount",
+        instruction: "whisper",
+      },
+    },
+    expiresAt: "2025-01-20T10:20:00Z",
+    createdAt: "2025-01-20T10:00:00Z",
+  },
+  intent_standard_ach: {
+    id: "challenge_standard_ach",
+    intentId: "intent_standard_ach",
+    language: "EN",
+    level: "L2",
+    grammarVersion: "v1.0",
+    challengeNonce: "ocean-mountain-forest",
+    challengeText:
+      "Authorize transfer: SEVEN TWO FIVE THOUSAND dollars. Beneficiary ending: ONE TWO THREE FOUR. Purpose: MONTHLY INVOICE. Nonce: 'ocean–mountain–forest'. Say the last three words faster.",
+    expectedSlotsJson: {
+      slots: [
+        {
+          name: "amount",
+          type: "amount",
+          value: "725000",
+          spoken: ["seven", "two", "five", "thousand"],
+          position: 2,
+        },
+        {
+          name: "beneficiary_suffix",
+          type: "digits",
+          value: "1234",
+          spoken: ["one", "two", "three", "four"],
+          position: 4,
+        },
+        {
+          name: "nonce",
+          type: "words",
+          value: "ocean-mountain-forest",
+          spoken: ["ocean", "mountain", "forest"],
+          position: 6,
+        },
+      ],
+      prosody_modifier: {
+        type: "speed",
+        target: "nonce",
+        instruction: "faster",
+      },
+    },
+    expiresAt: "2025-01-20T10:15:00Z",
+    createdAt: "2025-01-20T10:05:00Z",
+  },
+};
+
+export const MOCK_PROOFS: Record<string, VoiceProof> = {
+  intent_standard_ach: {
+    id: "proof_standard_ach",
+    intentId: "intent_standard_ach",
+    challengeId: "challenge_standard_ach",
+    userId: "user_alice_smith",
+    channel: "BROWSER",
+    transcript:
+      "Authorize transfer seven two five thousand dollars beneficiary ending one two three four purpose monthly invoice nonce ocean mountain forest",
+    transcriptLanguage: "en",
+    scoresJson: {
+      identity_confidence: 0.92,
+      liveness_score: 0.88,
+      spoof_risk_score: 0.05,
+      drift_score: 0.12,
+      coercion_risk_score: 0.08,
+      challenge_match_score: 0.95,
+    },
+    deviceMetadataJson: {
+      ip: "192.168.1.100",
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+      browser: "Chrome",
+      os: "macOS",
+    },
+    audioHash: "sha256_hash_of_audio",
+    modelVersion: "v2.0",
+    createdAt: "2025-01-20T10:06:00Z",
+  },
+};
+
+export const MOCK_DECISIONS: Record<string, Decision> = {
+  intent_standard_ach: {
+    id: "decision_standard_ach",
+    intentId: "intent_standard_ach",
+    decisionType: "APPROVE",
+    reasonCodesJson: ["voice_verified", "liveness_pass", "challenge_match"],
+    approvalTokenHash: "sha256_hash_of_token",
+    expiresAt: "2025-01-20T10:16:00Z",
+    signerKeyId: "key_dev_1",
+    decisionPayloadCanonicalJson: '{"intentId":"intent_standard_ach","decisionType":"APPROVE"}',
+    decisionHash: "sha256_hash_of_decision",
+    signature: "base64_signature",
+    policyId: "policy_acme_v1",
+    policyVersion: 1,
+    riskEngineVersion: "v1.0",
+    createdByUserId: "user_alice_smith",
+    createdAt: "2025-01-20T10:07:00Z",
+  },
+  intent_approved_pending_execution: {
+    id: "decision_approved_pending_execution",
+    intentId: "intent_approved_pending_execution",
+    decisionType: "APPROVE",
+    reasonCodesJson: ["voice_verified", "liveness_pass", "challenge_match"],
+    approvalTokenHash: "sha256_hash_of_token",
+    expiresAt: "2025-01-20T08:25:00Z",
+    signerKeyId: "key_dev_1",
+    decisionPayloadCanonicalJson: '{"intentId":"intent_approved_pending_execution"}',
+    decisionHash: "sha256_hash_of_decision",
+    signature: "base64_signature",
+    policyId: "policy_acme_v1",
+    policyVersion: 1,
+    riskEngineVersion: "v1.0",
+    createdByUserId: "user_alice_smith",
+    createdAt: "2025-01-20T08:15:00Z",
+  },
+};
+
+export const MOCK_APPROVAL_STATUS: Record<string, ApprovalStatus> = {
+  intent_high_risk_wire: {
+    required: 2,
+    completed: 0,
+    approvers: [
+      {
+        userId: "user_alice_smith",
+        name: "Alice Smith",
+        status: "pending",
+        completedAt: null,
+      },
+      {
+        userId: "user_bob_jones",
+        name: "Bob Jones",
+        status: "pending",
+        completedAt: null,
+      },
+    ],
+  },
+};
+
+export const MOCK_EVENT_LOGS: Record<string, EventLog[]> = {
+  intent_standard_ach: [
+    {
+      id: "event_1",
+      intentId: "intent_standard_ach",
+      seq: 1,
+      eventType: "intent.created",
+      payloadCanonicalJson: '{"intentId":"intent_standard_ach","railsType":"ACH"}',
+      prevHash: null,
+      eventHash: "hash_event_1",
+      createdByUserId: "user_alice_smith",
+      createdAt: "2025-01-20T10:00:00Z",
+    },
+    {
+      id: "event_2",
+      intentId: "intent_standard_ach",
+      seq: 2,
+      eventType: "challenge.created",
+      payloadCanonicalJson: '{"challengeId":"challenge_standard_ach"}',
+      prevHash: "hash_event_1",
+      eventHash: "hash_event_2",
+      createdByUserId: "user_alice_smith",
+      createdAt: "2025-01-20T10:05:00Z",
+    },
+    {
+      id: "event_3",
+      intentId: "intent_standard_ach",
+      seq: 3,
+      eventType: "proof.received",
+      payloadCanonicalJson: '{"proofId":"proof_standard_ach"}',
+      prevHash: "hash_event_2",
+      eventHash: "hash_event_3",
+      createdByUserId: "user_alice_smith",
+      createdAt: "2025-01-20T10:06:00Z",
+    },
+    {
+      id: "event_4",
+      intentId: "intent_standard_ach",
+      seq: 4,
+      eventType: "decision.made",
+      payloadCanonicalJson: '{"decisionId":"decision_standard_ach"}',
+      prevHash: "hash_event_3",
+      eventHash: "hash_event_4",
+      createdByUserId: "user_alice_smith",
+      createdAt: "2025-01-20T10:07:00Z",
+    },
+  ],
+};
+
+export const MOCK_AUDIT_BUNDLE: AuditBundle = {
+  id: "bundle_standard_ach",
+  intentId: "intent_standard_ach",
+  bundleHash: "sha256_bundle_hash",
+  manifestCanonicalJson: '{"intentId":"intent_standard_ach","files":[]}',
+  manifestSignature: "base64_signature",
+  signerKeyId: "key_dev_1",
+  storageRef: "/bundles/intent_standard_ach.zip",
+  createdAt: "2025-01-20T10:08:00Z",
+};
+
+export const MOCK_POLICY: PolicyVersion = {
+  policyId: "policy_acme_v1",
+  version: 1,
+  effectiveAt: "2025-01-15T00:00:00Z",
+  thresholds: {
+    amountStepUpMinor: "1000000",
+    dualApprovalRiskScore: 60,
+    criticalRiskScore: 85,
+    newBeneficiaryDays: 7,
+    outOfHoursStartHourLocal: 18,
+    outOfHoursEndHourLocal: 8,
+  },
+  rules: {
+    requireDualApprovalForInternationalWire: true,
+    requirePhoneForL3IfMicDenied: true,
+    cooldownMinutesForHighRisk: 10,
+    lockoutAfterFailedAttempts: 3,
+  },
+};
+
+export const MOCK_SERVICE_HEALTH: ServiceHealth = {
+  voiceService: "healthy",
+  phoneService: "healthy",
+  storageService: "healthy",
+};
+
+// ============================================================================
+// ADMIN DASHBOARD MOCK DATA
+// ============================================================================
+
+import type { AdminDashboardMetrics } from "../types/wire";
+
+export const MOCK_ADMIN_METRICS: AdminDashboardMetrics = {
+  financial: {
+    totalVolume30d: 12_500_000,
+    totalVolume7d: 2_100_000,
+    totalVolumeToday: 450_000,
+    fraudPrevented: 2_300_000,
+    averageTransferSize: 125_000,
+    railsDistribution: {
+      wire: 60,
+      ach: 40,
+    },
+  },
+  risk: {
+    averageRiskScore: 42,
+    riskScoreDistribution: [
+      { range: "0-20", count: 45 },
+      { range: "21-40", count: 78 },
+      { range: "41-60", count: 52 },
+      { range: "61-80", count: 15 },
+      { range: "81-100", count: 3 },
+    ],
+    highRiskIntents: {
+      over60: 15,
+      over85: 3,
+    },
+    riskTrends: [
+      { date: "2025-01-14", avgScore: 38 },
+      { date: "2025-01-15", avgScore: 40 },
+      { date: "2025-01-16", avgScore: 41 },
+      { date: "2025-01-17", avgScore: 43 },
+      { date: "2025-01-18", avgScore: 42 },
+      { date: "2025-01-19", avgScore: 44 },
+      { date: "2025-01-20", avgScore: 42 },
+    ],
+  },
+  users: {
+    totalActive: 24,
+    byRole: {
+      ADMIN: 2,
+      TREASURY_INITIATOR: 8,
+      APPROVER: 10,
+      AUDITOR: 4,
+      READ_ONLY: 0,
+    },
+    voiceEnrollmentRate: 92,
+    activeLast24h: 18,
+    needsEnrollment: 2,
+  },
+  approvals: {
+    approvalRate: 94,
+    averageApprovalTimeMinutes: 3.2,
+    dualApprovalRate: 68,
+    pendingCount: 7,
+  },
+  fraudPrevention: {
+    attemptsBlocked: 47,
+    spoofDetectionCount: 12,
+    coercionDetectionCount: 3,
+    challengeSuccessRate: 96,
+    failedChallengeRate: 4,
+  },
+};
+
+export const MOCK_ALL_USERS: OrgUser[] = [
+  {
+    id: "user_admin_1",
+    email: "cfo@acme.com",
+    name: "Sarah Johnson",
+    role: "ADMIN",
+    permissions: [
+      "intent:create",
+      "intent:approve",
+      "intent:execute",
+      "beneficiary:create",
+      "beneficiary:lock",
+      "policy:edit",
+      "evidence:view",
+      "evidence:export_full",
+    ],
+    voiceEnrolled: true,
+    enrolledAt: "2025-01-15T10:00:00Z",
+    lastActivityAt: "2025-01-20T14:30:00Z",
+    createdAt: "2025-01-15T10:00:00Z",
+  },
+  {
+    id: "user_admin_2",
+    email: "admin@acme.com",
+    name: "Michael Chen",
+    role: "ADMIN",
+    permissions: [
+      "intent:create",
+      "intent:approve",
+      "intent:execute",
+      "beneficiary:create",
+      "beneficiary:lock",
+      "policy:edit",
+      "evidence:view",
+      "evidence:export_full",
+    ],
+    voiceEnrolled: true,
+    enrolledAt: "2025-01-15T11:00:00Z",
+    lastActivityAt: "2025-01-20T13:15:00Z",
+    createdAt: "2025-01-15T11:00:00Z",
+  },
+  ...MOCK_APPROVERS.map((u, i) => ({
+    ...u,
+    lastActivityAt: new Date(Date.now() - i * 3600000).toISOString(),
+    createdAt: "2025-01-16T10:00:00Z",
+  })),
+];

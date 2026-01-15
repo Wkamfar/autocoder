@@ -1,0 +1,74 @@
+name: Deploy Wire2 to Production (wire.pose.xyz)
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: wire2-prod-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Sync repo to droplet (/opt/wire2)
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HOST:-}" ] || [ -z "${USER:-}" ]; then
+            echo "Missing required secrets: DEPLOY_HOST and/or DEPLOY_USER" >&2
+            exit 1
+          fi
+          PORT_ARG=""
+          if [ -n "${PORT:-}" ]; then
+            PORT_ARG="-p ${PORT}"
+          fi
+
+          # Copy code to droplet without requiring git credentials on the droplet.
+          # We intentionally do NOT ship secrets; /etc/wire2/.env.production is the source of truth.
+          tar --exclude='./.git' \
+              --exclude='./node_modules' \
+              --exclude='./frontend/node_modules' \
+              --exclude='./backend/node_modules' \
+              --exclude='./.env.production' \
+              -czf - . \
+          | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${PORT_ARG} "${USER}@${HOST}" \
+              "mkdir -p /opt/wire2 && tar -xzf - -C /opt/wire2"
+
+      - name: Deploy on droplet (SSH)
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HOST:-}" ] || [ -z "${USER:-}" ]; then
+            echo "Missing required secrets: DEPLOY_HOST and/or DEPLOY_USER" >&2
+            exit 1
+          fi
+          PORT_ARG=""
+          if [ -n "${PORT:-}" ]; then
+            PORT_ARG="-p ${PORT}"
+          fi
+
+          echo "Deploying to ${USER}@${HOST} ${PORT_ARG}"
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${PORT_ARG} "${USER}@${HOST}" << 'EOF'
+            set -euo pipefail
+            cd /opt/wire2
+            chmod +x ./scripts/deploy_prod_droplet.sh
+            ./scripts/deploy_prod_droplet.sh
+          EOF
+
