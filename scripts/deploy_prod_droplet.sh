@@ -253,14 +253,17 @@ rm -rf "$WIRE2_PATH/frontend/dist-wire"/*
 docker cp wire-frontend-tmp:/usr/share/nginx/html/. "$WIRE2_PATH/frontend/dist-wire/"
 docker rm wire-frontend-tmp >/dev/null
 
-# Normalize index.html
-if [[ ! -f "$WIRE2_PATH/frontend/dist-wire/index.html" && -f "$WIRE2_PATH/frontend/dist-wire/index-wire.html" ]]; then
-  log "frontend dist has index-wire.html but not index.html; copying to index.html"
-  cp -av "$WIRE2_PATH/frontend/dist-wire/index-wire.html" "$WIRE2_PATH/frontend/dist-wire/index.html"
+# Normalize index.html - always use index-wire.html as the source of truth
+if [[ -f "$WIRE2_PATH/frontend/dist-wire/index-wire.html" ]]; then
+  log "Copying index-wire.html to index.html (ensuring latest version)"
+  cp -f "$WIRE2_PATH/frontend/dist-wire/index-wire.html" "$WIRE2_PATH/frontend/dist-wire/index.html"
+elif [[ ! -f "$WIRE2_PATH/frontend/dist-wire/index.html" ]]; then
+  fail "frontend dist missing both index.html and index-wire.html at $WIRE2_PATH/frontend/dist-wire/"
 fi
 
-if [[ ! -f "$WIRE2_PATH/frontend/dist-wire/index.html" ]]; then
-  fail "frontend dist missing index.html at $WIRE2_PATH/frontend/dist-wire/"
+# Verify index.html exists and has content
+if [[ ! -f "$WIRE2_PATH/frontend/dist-wire/index.html" ]] || [[ ! -s "$WIRE2_PATH/frontend/dist-wire/index.html" ]]; then
+  fail "frontend dist missing or empty index.html at $WIRE2_PATH/frontend/dist-wire/"
 fi
 
 log "Frontend deployed successfully"
