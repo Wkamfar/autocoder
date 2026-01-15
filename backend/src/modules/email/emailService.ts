@@ -47,11 +47,12 @@ export async function sendEmail(options: EmailOptions): Promise<{
     case "console":
     default:
       // Log to console for development
-      console.log("📧 EMAIL (console mode):", {
+      console.log("📧 EMAIL (console mode - NOT ACTUALLY SENT):", {
         to: options.to,
         subject: options.subject,
         template: options.templateType,
         body: options.bodyText || options.bodyHtml?.substring(0, 100),
+        warning: "EMAIL_PROVIDER is set to 'console'. No email was actually sent. Set EMAIL_PROVIDER=mailgun to send real emails.",
       });
       return { success: true, messageId: `console_${Date.now()}` };
   }

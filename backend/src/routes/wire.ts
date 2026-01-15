@@ -730,12 +730,28 @@ export const wireRoutes: FastifyPluginAsync = async (app) => {
             await enqueueEmail({ ...emailOptions, orgId: req.user!.orgId, userId: req.user!.id });
             req.log.info({ beneficiaryId: created.id, email: body.email }, "Beneficiary confirmation email enqueued");
           } else {
-            req.log.info({ beneficiaryId: created.id, email: body.email }, "Sending beneficiary confirmation email synchronously");
+            req.log.info({ 
+              beneficiaryId: created.id, 
+              email: body.email, 
+              emailProvider: process.env.EMAIL_PROVIDER || "console",
+              mailgunDomain: process.env.MAILGUN_DOMAIN || "not set",
+              fromEmail: process.env.FROM_EMAIL || "not set"
+            }, "Sending beneficiary confirmation email synchronously");
             const result = await sendEmail(emailOptions);
             if (result.success) {
-              req.log.info({ beneficiaryId: created.id, email: body.email, messageId: result.messageId }, "Beneficiary confirmation email sent successfully");
+              req.log.info({ 
+                beneficiaryId: created.id, 
+                email: body.email, 
+                messageId: result.messageId,
+                emailProvider: process.env.EMAIL_PROVIDER || "console"
+              }, "Beneficiary confirmation email sent successfully");
             } else {
-              req.log.error({ beneficiaryId: created.id, email: body.email, error: result.error }, "Beneficiary confirmation email failed to send");
+              req.log.error({ 
+                beneficiaryId: created.id, 
+                email: body.email, 
+                error: result.error,
+                emailProvider: process.env.EMAIL_PROVIDER || "console"
+              }, "Beneficiary confirmation email failed to send");
             }
           }
         } catch (err: any) {
