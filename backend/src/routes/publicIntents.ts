@@ -149,7 +149,7 @@ export const publicIntentProtectedRoutes: FastifyPluginAsync = async (app) => {
 
       // Create (or reuse) a beneficiary inside org
       const beneficiaryId = `ben_${Date.now()}_${crypto.randomBytes(8).toString("hex")}`;
-      const beneficiary = await createBeneficiary({
+      const { beneficiary } = await createBeneficiary({
         orgId: req.user.orgId,
         userId: req.user.id,
         displayName: record.beneficiaryDisplayName,
