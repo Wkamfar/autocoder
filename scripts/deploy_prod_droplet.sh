@@ -319,10 +319,10 @@ server {
   }
 
   # Serve the Wire2 SPA under /v2/*
-  # Use root instead of alias to avoid rewrite conflicts
+  # Use root with parent directory so /v2/ maps to dist-wire/
   location ^~ /v2/ {
-    root ${WIRE2_PATH}/frontend/dist-wire;
-    try_files \$uri \$uri/ /v2/index.html;
+    root ${WIRE2_PATH}/frontend;
+    try_files /dist-wire\$uri /dist-wire\$uri/ /dist-wire/index.html =404;
   }
 
   # /wire/* legacy alias -> /v2/* (customer-facing compatibility)
