@@ -43,6 +43,7 @@ ENV VITE_DEMO_USER_ID=${VITE_DEMO_USER_ID}
 ENV NODE_ENV=production
 
 # Build the app
+# Cache bust: 2026-01-15 - Fixed TypeScript errors for beneficiary email confirmation
 RUN npm run build
 
 # Stage 3: Production
