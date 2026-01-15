@@ -381,7 +381,7 @@ export default function WireBeneficiaryIntelligencePage() {
   
   const { data: intelligence, isLoading: intelligenceLoading } = useQuery({
     queryKey: ["vendorIntelligence", id],
-    queryFn: () => api.wireApi.getBeneficiaryIntelligence(id || ""),
+    queryFn: () => wireApi.getBeneficiaryIntelligence(id || ""),
     enabled: !!id,
     // Fallback to empty data structure if API fails or no data yet
     placeholderData: () => {

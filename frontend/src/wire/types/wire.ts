@@ -267,6 +267,7 @@ export type Beneficiary = {
   id: string;
   orgId: string;
   displayName: string;
+  email?: string | null;
   country: string;
   railsAllowed: RailsType[];
   bankLast4: string;

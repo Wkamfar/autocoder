@@ -44,7 +44,7 @@ export default function WireBeneficiaryConfirmPage() {
 
     async function loadBeneficiary() {
       try {
-        const response = await fetch(`${getApiBaseUrl()}/api/beneficiaries/confirm?token=${encodeURIComponent(token)}`);
+        const response = await fetch(`${getApiBaseUrl()}/api/beneficiaries/confirm?token=${encodeURIComponent(token || "")}`);
         if (!response.ok) {
           throw new Error("Invalid or expired confirmation token");
         }
