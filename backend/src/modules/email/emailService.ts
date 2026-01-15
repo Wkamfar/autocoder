@@ -122,33 +122,60 @@ async function sendViaMailgun(options: EmailOptions): Promise<{
     const res1 = await postMessage(buildForm(from, false));
     if (res1.status >= 200 && res1.status < 300) {
       const id = (res1.data as any)?.id;
+      const message = (res1.data as any)?.message;
+      console.log("📧 Mailgun API success:", { status: res1.status, messageId: id, message, to: options.to, from: from });
       return { success: true, ...(id ? { messageId: String(id) } : {}) };
     }
 
     // If Mailgun rejects the "from" domain (common while DNS verification is still propagating),
     // retry using the authorized Mailgun domain sender while preserving Reply-To as the desired address.
     const msg1 = String((res1.data as any)?.message || (res1.data as any)?.error || `Mailgun request failed (${res1.status})`);
+    console.error("📧 Mailgun API error (first attempt):", { 
+      status: res1.status, 
+      error: msg1, 
+      responseData: res1.data,
+      to: options.to,
+      from: from,
+      domain: mgDomain
+    });
     const looksLikeFromDomainRejection =
       res1.status === 400 &&
       /from/i.test(msg1) &&
       /(domain|address|not allowed|not authorized|must be)/i.test(msg1);
 
     if (looksLikeFromDomainRejection) {
+      console.log("📧 Mailgun retrying with fallback FROM address:", { fallbackFrom, originalFrom: from });
       const res2 = await postMessage(buildForm(fallbackFrom, true));
       if (res2.status >= 200 && res2.status < 300) {
         const id = (res2.data as any)?.id;
+        const message = (res2.data as any)?.message;
+        console.log("📧 Mailgun API success (fallback):", { status: res2.status, messageId: id, message, to: options.to });
         return {
           success: true,
           ...(id ? { messageId: String(id) } : {}),
         };
       }
       const msg2 = String((res2.data as any)?.message || (res2.data as any)?.error || `Mailgun request failed (${res2.status})`);
+      console.error("📧 Mailgun API error (fallback):", { 
+        status: res2.status, 
+        error: msg2, 
+        responseData: res2.data,
+        to: options.to
+      });
       return { success: false, error: msg2 };
     }
 
     return { success: false, error: msg1 };
   } catch (error: any) {
-    return { success: false, error: error?.message || "Mailgun send failed" };
+    const errorMsg = error.response?.data?.errors?.[0]?.message || error.message;
+    console.error("📧 Mailgun exception:", { 
+      error: errorMsg, 
+      status: error.response?.status,
+      responseData: error.response?.data,
+      to: options.to,
+      stack: error.stack
+    });
+    return { success: false, error: errorMsg || "Mailgun send failed" };
   }
 }
 
