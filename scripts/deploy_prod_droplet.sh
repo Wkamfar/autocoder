@@ -318,20 +318,19 @@ server {
     return 302 /v2/;
   }
 
-  # Static asset caching (served from dist-wire) - must come BEFORE the general /v2/ block
-  location ~* ^/v2/.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|webmanifest)$ {
-    alias ${WIRE2_PATH}/frontend/dist-wire/;
-    rewrite ^/v2/(.*)$ /\$1 break;
-    expires 30d;
-    add_header Cache-Control "public";
-    try_files \$uri =404;
-  }
-
   # Serve the Wire2 SPA under /v2/*
   location ^~ /v2/ {
     alias ${WIRE2_PATH}/frontend/dist-wire/;
-    rewrite ^/v2/(.*)$ /\$1 break;
-    try_files \$uri \$uri/ /index.html;
+    try_files \$uri \$uri/ @fallback;
+    expires 30d;
+    add_header Cache-Control "public";
+  }
+
+  # Fallback for SPA routing - serve index.html for any /v2/* path that doesn't match a file
+  location @fallback {
+    rewrite ^/v2/(.*)$ /v2/ break;
+    alias ${WIRE2_PATH}/frontend/dist-wire/index.html;
+    add_header Cache-Control "no-cache";
   }
 
   # /wire/* legacy alias -> /v2/* (customer-facing compatibility)
