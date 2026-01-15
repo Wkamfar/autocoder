@@ -693,6 +693,8 @@ export const wireRoutes: FastifyPluginAsync = async (app) => {
           const baseUrl = (process.env.FRONTEND_URL || "https://wire.pose.xyz").replace(/\/$/, "");
           const confirmationUrl = `${baseUrl}/v2/beneficiaries/confirm?token=${encodeURIComponent(confirmationToken)}`;
           
+          req.log.info({ beneficiaryId: created.id, email: body.email, emailProvider: process.env.EMAIL_PROVIDER || "console" }, "Preparing to send beneficiary confirmation email");
+          
           const emailTemplate = generateEmailTemplate("user_invitation", {
             name: body.displayName,
             invitationUrl: confirmationUrl,
@@ -724,14 +726,25 @@ export const wireRoutes: FastifyPluginAsync = async (app) => {
           };
           
           if (process.env.EMAIL_ASYNC === "true") {
+            req.log.info({ beneficiaryId: created.id, email: body.email }, "Enqueuing beneficiary confirmation email");
             await enqueueEmail({ ...emailOptions, orgId: req.user!.orgId, userId: req.user!.id });
+            req.log.info({ beneficiaryId: created.id, email: body.email }, "Beneficiary confirmation email enqueued");
           } else {
-            await sendEmail(emailOptions);
+            req.log.info({ beneficiaryId: created.id, email: body.email }, "Sending beneficiary confirmation email synchronously");
+            const result = await sendEmail(emailOptions);
+            if (result.success) {
+              req.log.info({ beneficiaryId: created.id, email: body.email, messageId: result.messageId }, "Beneficiary confirmation email sent successfully");
+            } else {
+              req.log.error({ beneficiaryId: created.id, email: body.email, error: result.error }, "Beneficiary confirmation email failed to send");
+            }
           }
-          req.log.info({ beneficiaryId: created.id, email: body.email }, "Beneficiary confirmation email sent");
         } catch (err: any) {
-          req.log.warn({ err, beneficiaryId: created.id }, "Failed to send beneficiary confirmation email");
+          req.log.error({ err: err?.message || err, stack: err?.stack, beneficiaryId: created.id, email: body.email }, "Failed to send beneficiary confirmation email");
           // Don't fail beneficiary creation if email fails
+        }
+      } else {
+        if (body.email && !confirmationToken) {
+          req.log.warn({ beneficiaryId: created.id, email: body.email }, "Email provided but no confirmation token generated");
         }
       }
       
