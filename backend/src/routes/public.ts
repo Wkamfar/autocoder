@@ -188,6 +188,12 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
         ...(sent.messageId ? { messageId: sent.messageId } : {}),
         ...(sent.error ? { error: sent.error } : {}),
       };
+      // Log email delivery status
+      if (emailDelivery.delivered) {
+        req.log.info({ emailDelivery }, "Signup email sent successfully");
+      } else {
+        req.log.warn({ emailDelivery }, "Signup email delivery failed or skipped");
+      }
     } catch (err: any) {
       emailDelivery = {
         provider: emailProvider,
@@ -195,7 +201,7 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
         error: err?.message || "Email send failed",
       };
       // Do NOT fail signup on email issues.
-      console.warn("[signup] email delivery failed:", emailDelivery);
+      req.log.warn({ err, emailDelivery }, "Signup email delivery failed with exception");
     }
     
       reply.code(201);
