@@ -41,10 +41,11 @@ export default function WireBeneficiaryConfirmPage() {
       setStep("error");
       return;
     }
+    const tokenValue = token; // Capture for TypeScript narrowing
 
     async function loadBeneficiary() {
       try {
-        const response = await fetch(`${getApiBaseUrl()}/api/beneficiaries/confirm?token=${encodeURIComponent(token || "")}`);
+        const response = await fetch(`${getApiBaseUrl()}/api/beneficiaries/confirm?token=${encodeURIComponent(tokenValue)}`);
         if (!response.ok) {
           throw new Error("Invalid or expired confirmation token");
         }

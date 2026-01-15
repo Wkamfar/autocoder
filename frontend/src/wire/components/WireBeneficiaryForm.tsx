@@ -23,13 +23,16 @@ export function WireBeneficiaryForm({ onSubmit, onCancel }: WireBeneficiaryFormP
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
+    const submitData: Partial<Beneficiary> = {
       displayName,
-      email: email || undefined,
       country,
       railsAllowed,
       bankLast4,
-    });
+    };
+    if (email) {
+      submitData.email = email;
+    }
+    onSubmit(submitData);
   };
 
   return (
