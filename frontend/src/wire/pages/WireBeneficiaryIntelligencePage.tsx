@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "../../crm/ui/CrmDesignSystem";
 import { useWireBeneficiaries } from "../hooks/useWireIntents";
 import { useWireIntents } from "../hooks/useWireIntents";
-import { api } from "../api";
+import { wireApi } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import {
   LineChart,
