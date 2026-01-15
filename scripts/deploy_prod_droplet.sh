@@ -15,7 +15,13 @@ WIRE2_PATH="${WIRE2_PATH:-/opt/wire2}"
 ENV_SOURCE="${ENV_SOURCE:-/etc/wire2/.env.production}"
 BRANCH="${BRANCH:-main}"
 BASE_URL="${BASE_URL:-https://wire.pose.xyz}"
-GITHUB_REPO="${GITHUB_REPO:-git@github.com:a0ix/wire.git}"
+# Use HTTPS by default (works without SSH keys)
+# If GITHUB_TOKEN is set, use it for authentication
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  GITHUB_REPO="${GITHUB_REPO:-https://${GITHUB_TOKEN}@github.com/a0ix/wire.git}"
+else
+  GITHUB_REPO="${GITHUB_REPO:-https://github.com/a0ix/wire.git}"
+fi
 
 log() { echo "[wire2-deploy] $(date '+%Y-%m-%d %H:%M:%S') $*"; }
 fail() { echo "[wire2-deploy] FAIL: $*" >&2; exit 1; }
