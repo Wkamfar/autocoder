@@ -71,7 +71,7 @@ export async function buildApp() {
   await app.register(multipart);
 
   // Global error handler - catch all unhandled errors
-  app.setErrorHandler((error, request, reply) => {
+  app.setErrorHandler((error: unknown, request, reply) => {
     // Log the error
     request.log.error({ err: error }, "Unhandled error");
     
@@ -80,31 +80,34 @@ export async function buildApp() {
       return;
     }
     
+    // Type guard for error object
+    const err = error as any;
+    
     // Handle validation errors
-    if (error.validation) {
+    if (err?.validation) {
       return reply.code(400).send({
         error: "Validation error",
         code: "INVALID_REQUEST",
-        details: error.validation,
+        details: err.validation,
       });
     }
     
     // Handle Prisma errors
-    if (error.code && error.code.startsWith("P")) {
+    if (err?.code && typeof err.code === "string" && err.code.startsWith("P")) {
       request.log.error({ err: error }, "Database error");
       return reply.code(500).send({
         error: "Database error occurred",
         code: "INTERNAL_ERROR",
-        details: process.env.NODE_ENV === "development" ? { message: error.message } : undefined,
+        details: process.env.NODE_ENV === "development" ? { message: err?.message } : undefined,
       });
     }
     
     // Default error response
-    const statusCode = error.statusCode || 500;
+    const statusCode = err?.statusCode || 500;
     return reply.code(statusCode).send({
-      error: error.message || "Internal server error",
+      error: err?.message || "Internal server error",
       code: statusCode >= 500 ? "INTERNAL_ERROR" : "INVALID_REQUEST",
-      details: process.env.NODE_ENV === "development" ? { stack: error.stack } : undefined,
+      details: process.env.NODE_ENV === "development" ? { stack: err?.stack } : undefined,
     });
   });
 

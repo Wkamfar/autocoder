@@ -23,7 +23,23 @@ cd /opt/wire2
 cp -r /opt/wire2 /opt/wire2-backup-$(date +%Y%m%d-%H%M%S)
 ```
 
-### 4. Update Repository
+### 4. Update Git Remote to HTTPS
+
+The deployment script now uses HTTPS by default. Update your remote:
+
+```bash
+cd /opt/wire2
+
+# Change remote to HTTPS (if it's currently SSH)
+git remote set-url origin https://github.com/a0ix/wire.git
+
+# Verify
+git remote -v
+# Should show: origin  https://github.com/a0ix/wire.git (fetch)
+#              origin  https://github.com/a0ix/wire.git (push)
+```
+
+### 5. Update Repository
 
 ```bash
 cd /opt/wire2
@@ -38,7 +54,7 @@ git reset --hard origin/main
 git clean -fd
 ```
 
-### 5. Verify Structure
+### 6. Verify Structure
 
 ```bash
 # Check that files are at correct paths
@@ -51,7 +67,7 @@ ls -la frontend/src/wire/api/client.ts
 ls -la | grep -i desktop || echo "✓ No Desktop folder (good!)"
 ```
 
-### 6. Run Deployment
+### 7. Run Deployment
 
 ```bash
 # Make sure you're in the right directory
@@ -64,7 +80,7 @@ source /etc/wire2/.env.production 2>/dev/null || true
 bash scripts/deploy_prod_droplet.sh
 ```
 
-### 7. Verify Deployment
+### 8. Verify Deployment
 
 ```bash
 # Check backend health
@@ -79,13 +95,24 @@ docker ps | grep wire2
 
 ## Troubleshooting
 
+### If git fetch fails with authentication:
+
+```bash
+# Option 1: Use HTTPS (public repo, no auth needed)
+git remote set-url origin https://github.com/a0ix/wire.git
+
+# Option 2: Use GitHub token (if repo is private)
+export GITHUB_TOKEN=your_token_here
+git remote set-url origin https://${GITHUB_TOKEN}@github.com/a0ix/wire.git
+```
+
 ### If git reset fails:
 
 ```bash
 # Remove and re-clone
 cd /opt
 rm -rf wire2
-git clone git@github.com:a0ix/wire.git wire2
+git clone https://github.com/a0ix/wire.git wire2
 cd wire2
 ```
 

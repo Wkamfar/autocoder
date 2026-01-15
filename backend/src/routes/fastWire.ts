@@ -24,6 +24,7 @@ import {
   isEmailVerificationEnabled,
 } from "../modules/fastWire/emailVerification.js";
 import { verifyVoice } from "../modules/poseVoice/service.js";
+import { logger } from "../lib/observability.js";
 
 export const fastWireRoutes: FastifyPluginAsync = async (app) => {
   /**

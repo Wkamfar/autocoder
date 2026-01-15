@@ -596,7 +596,7 @@ export async function submitProof(params: {
       const { sendApprovalRequestEmails } = await import("../email/intentNotifications.js");
       const beneficiary = await prisma.beneficiary.findFirst({
         where: { id: intent.beneficiaryId, orgId: intent.orgId },
-        select: { name: true, bankLast4: true },
+        select: { displayName: true, bankLast4: true },
       });
       if (beneficiary) {
         await sendApprovalRequestEmails({
@@ -610,7 +610,7 @@ export async function submitProof(params: {
             createdByUserId: intent.createdByUserId,
           },
           beneficiary: {
-            name: beneficiary.name,
+            name: beneficiary.displayName,
             accountNumberLast4: beneficiary.bankLast4 || undefined,
           },
           requiredApprovals: intent.requiredApprovals,
@@ -852,7 +852,7 @@ export async function createDecision(params: {
         const { sendApprovalCompletedEmails } = await import("../email/intentNotifications.js");
         const beneficiary = await prisma.beneficiary.findFirst({
           where: { id: intent.beneficiaryId, orgId: intent.orgId },
-          select: { name: true },
+          select: { displayName: true },
         });
         // Get POSE transaction hash from the approved event
         const approvedEventWithPose = await prisma.intentEvent.findFirst({
@@ -871,7 +871,7 @@ export async function createDecision(params: {
               createdByUserId: intent.createdByUserId,
             },
             beneficiary: {
-              name: beneficiary.name,
+              name: beneficiary.displayName,
             },
             approvalEventHash: approvedEvent.eventHash,
             poseTxHash: approvedEventWithPose?.poseAnchorTxHash || null,
@@ -1058,7 +1058,7 @@ export async function executeIntent(params: {
         const { sendExecutionCompletedEmails } = await import("../email/intentNotifications.js");
         const beneficiary = await prisma.beneficiary.findFirst({
           where: { id: intent.beneficiaryId, orgId: intent.orgId },
-          select: { name: true },
+          select: { displayName: true },
         });
         // Get POSE transaction hash from the executed event
         const executedEventWithPose = await prisma.intentEvent.findFirst({
@@ -1077,7 +1077,7 @@ export async function executeIntent(params: {
               createdByUserId: intent.createdByUserId,
             },
             beneficiary: {
-              name: beneficiary.name,
+              name: beneficiary.displayName,
             },
             executionRef,
             executionEventHash: executedEvent.eventHash,
