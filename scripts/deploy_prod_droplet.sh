@@ -321,16 +321,8 @@ server {
   # Serve the Wire2 SPA under /v2/*
   location ^~ /v2/ {
     alias ${WIRE2_PATH}/frontend/dist-wire/;
-    try_files \$uri \$uri/ @fallback;
-    expires 30d;
-    add_header Cache-Control "public";
-  }
-
-  # Fallback for SPA routing - serve index.html for any /v2/* path that doesn't match a file
-  location @fallback {
-    rewrite ^/v2/(.*)$ /v2/ break;
-    alias ${WIRE2_PATH}/frontend/dist-wire/index.html;
-    add_header Cache-Control "no-cache";
+    try_files \$uri \$uri/ /v2/index.html;
+    add_header Cache-Control "public, max-age=3600";
   }
 
   # /wire/* legacy alias -> /v2/* (customer-facing compatibility)
