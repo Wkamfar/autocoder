@@ -370,7 +370,12 @@ describe("Agent 10: E2E critical flows (top 6)", () => {
     const exec = await app.inject({
       method: "POST",
       url: `/api/wire/intents/${intentId}/execute`,
-      headers: { authorization: `Bearer ${adminToken}`, "x-pose-approval": approvalToken, "x-idempotency-key": `idem_${ts}` },
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "x-pose-approval": approvalToken,
+        "x-idempotency-key": `idem_${ts}`,
+        "content-type": "application/json",
+      },
       payload: JSON.stringify({ provider: "mock" }),
     });
     expect(exec.statusCode).toBe(200);

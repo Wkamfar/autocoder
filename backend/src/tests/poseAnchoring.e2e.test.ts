@@ -168,6 +168,10 @@ describe("Agent 11: POSE anchoring job", () => {
     expect(jobs.length).toBeGreaterThan(0);
 
     for (const j of jobs) {
+      if (j.type !== JOB_TYPES.POSE_ANCHOR_INTENT_EVENT) {
+        await markJobSucceeded(j.id);
+        continue;
+      }
       const payload = JSON.parse(j.payloadJson || "{}");
       await processPoseAnchorIntentEventJob({ jobId: j.id, payload });
       await markJobSucceeded(j.id);
