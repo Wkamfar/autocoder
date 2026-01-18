@@ -1,4 +1,4 @@
-import { createSign, createVerify } from "node:crypto";
+import { createPrivateKey, createPublicKey, sign as cryptoSign, verify as cryptoVerify } from "node:crypto";
 
 /**
  * Ed25519 signing and verification utilities.
@@ -20,18 +20,12 @@ export interface SigningKey {
  * @returns Base64url-encoded signature (64 bytes → 86 characters)
  */
 export function signEd25519(message: string, privateKey: Buffer | string): string {
-  const sign = createSign("Ed25519");
-  sign.update(message, "utf8");
-  
+  const payload = Buffer.from(message, "utf8");
+
   // If Buffer, convert to PEM format for Node.js crypto
   let keyToUse: string | Buffer = privateKey;
   if (Buffer.isBuffer(privateKey)) {
-    // For Ed25519, Node.js expects PKCS#8 format
-    // We'll use the raw buffer directly - Node.js 12+ supports this
-    // Actually, we need to create a proper key object
-    const { createPrivateKey } = require("node:crypto");
-    // Convert raw 64-byte key to PEM format
-    // Ed25519 private key in PKCS#8 DER format
+    // Convert raw 32-byte seed into PKCS#8 for Ed25519.
     const pkcs8Header = Buffer.from([
       0x30, 0x2e, // SEQUENCE
       0x02, 0x01, 0x00, // version
@@ -44,9 +38,8 @@ export function signEd25519(message: string, privateKey: Buffer | string): strin
     const keyPem = `-----BEGIN PRIVATE KEY-----\n${keyDer.toString("base64")}\n-----END PRIVATE KEY-----`;
     keyToUse = createPrivateKey(keyPem);
   }
-  
-  const signature = sign.sign(keyToUse);
-  // Convert to base64url (RFC 4648 §5)
+
+  const signature = cryptoSign(null, payload, keyToUse);
   return signature.toString("base64url");
 }
 
@@ -63,14 +56,12 @@ export function verifyEd25519(
   publicKey: Buffer | string
 ): boolean {
   try {
-    const verify = createVerify("Ed25519");
-    verify.update(message, "utf8");
+    const payload = Buffer.from(message, "utf8");
     const sigBuffer = Buffer.from(signature, "base64url");
     
     // If Buffer, convert to PEM format for Node.js crypto
     let keyToUse: string | Buffer = publicKey;
     if (Buffer.isBuffer(publicKey)) {
-      const { createPublicKey } = require("node:crypto");
       // Convert raw 32-byte key to PEM format
       // Ed25519 public key in SPKI format
       const spkiHeader = Buffer.from([
@@ -85,8 +76,8 @@ export function verifyEd25519(
       const keyPem = `-----BEGIN PUBLIC KEY-----\n${keyDer.toString("base64")}\n-----END PUBLIC KEY-----`;
       keyToUse = createPublicKey(keyPem);
     }
-    
-    return verify.verify(keyToUse, sigBuffer);
+
+    return cryptoVerify(null, payload, keyToUse, sigBuffer);
   } catch (error) {
     // Invalid signature format or verification failure
     return false;

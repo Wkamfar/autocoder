@@ -129,7 +129,7 @@ export async function processPoseAnchorIntentEventJob(params: {
   const eventHash = payload.eventHash;
   const prevEventHash = payload.prevEventHash ?? null;
 
-  if (!orgId || !intentId || !seq || !eventHash) {
+  if (!orgId || !intentId || seq === undefined || seq === null || !eventHash) {
     // Let worker mark DEAD with a clear message.
     throw new Error("missing_payload_fields");
   }

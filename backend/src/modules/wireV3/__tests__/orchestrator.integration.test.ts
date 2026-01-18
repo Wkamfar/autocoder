@@ -159,8 +159,15 @@ describeDb("wire v3 orchestrator (integration)", () => {
       throw new Error(session.error);
     }
 
+    const latestIntent = await prisma.intent.findFirst({
+      where: { orgId: ctx.orgId },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!latestIntent) {
+      throw new Error("Intent not created for v3 session");
+    }
     await prisma.intent.update({
-      where: { id: session.intentId },
+      where: { id: latestIntent.id },
       data: { requiredApprovals: 2 },
     });
 

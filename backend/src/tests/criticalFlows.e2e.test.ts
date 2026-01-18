@@ -270,6 +270,41 @@ describe("Agent 10: E2E critical flows (top 6)", () => {
       password: "pay-admin-123",
     });
 
+    const approverEmail = `pay_approver_${ts}@example.com`;
+    const invite = await app.inject({
+      method: "POST",
+      url: "/api/wire/invitations",
+      headers: jsonHeaders(adminToken),
+      payload: JSON.stringify({ email: approverEmail, role: "APPROVER", expiresInDays: 7 }),
+    });
+    expect(invite.statusCode).toBe(201);
+    const inviteUrl = (invite.json() as any).inviteUrl as string;
+    const approverTokenValue = inviteUrl.includes("t=")
+      ? new URL(inviteUrl).searchParams.get("t")
+      : inviteUrl.split("/invite/")[1] || null;
+    expect(approverTokenValue).toBeTruthy();
+
+    const acceptApprover = await app.inject({
+      method: "POST",
+      url: "/api/wire/invitations/accept",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({
+        token: approverTokenValue,
+        name: "Approver User",
+        password: "approver-password-123",
+      }),
+    });
+    expect(acceptApprover.statusCode).toBe(200);
+
+    const approverLogin = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      headers: { "content-type": "application/json" },
+      payload: JSON.stringify({ email: approverEmail, password: "approver-password-123" }),
+    });
+    expect(approverLogin.statusCode).toBe(200);
+    const approverToken = (approverLogin.json() as any).token as string;
+
     // Create beneficiary
     const ben = await app.inject({
       method: "POST",
@@ -324,7 +359,7 @@ describe("Agent 10: E2E critical flows (top 6)", () => {
     const decision = await app.inject({
       method: "POST",
       url: `/api/wire/intents/${intentId}/decision`,
-      headers: jsonHeaders(adminToken),
+      headers: jsonHeaders(approverToken),
       payload: JSON.stringify({ action: "APPROVE", proofId }),
     });
     expect(decision.statusCode).toBe(200);
@@ -481,7 +516,7 @@ describe("Agent 10: E2E critical flows (top 6)", () => {
     const spy = vi.spyOn(axiosMod.default, "post").mockResolvedValue({ status: 200, data: { ok: true } } as any);
 
     const ts = Date.now();
-    const { token } = await signupAndLogin(app, {
+    const { token, signup } = await signupAndLogin(app, {
       org: `HookCo ${ts}`,
       name: "Admin",
       email: `hook_admin_${ts}@example.com`,
@@ -512,7 +547,8 @@ describe("Agent 10: E2E critical flows (top 6)", () => {
 
     // Drive the delivery attempt (worker normally does this)
     const { attemptWebhookDeliveryById } = await import("../modules/webhooks/webhookService.js");
-    const res = await attemptWebhookDeliveryById(deliveryId);
+    const orgId = (signup as any)?.organization?.id as string;
+    const res = await attemptWebhookDeliveryById(deliveryId, orgId);
     expect(res.ok).toBe(true);
     expect(spy).toHaveBeenCalled();
 

@@ -122,7 +122,7 @@ describe("wire demo flow", () => {
       headers: headersAlice,
       payload: JSON.stringify({
         channel: "BROWSER",
-        transcript: "Authorize transfer ok",
+        transcript: challenge.challengeText ?? "Authorize transfer ok",
         transcriptLanguage: "en",
         deviceMetadataJson: { ip: "127.0.0.1" },
       }),

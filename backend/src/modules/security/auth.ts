@@ -110,7 +110,9 @@ export async function registerAuthHooks(app: FastifyInstance): Promise<void> {
       url === "/api/auth/magic/consume" ||
       url === "/api/auth/password/reset/request" ||
       url === "/api/auth/password/reset/confirm" ||
-      url.startsWith("/api/auth/oidc/");
+      url.startsWith("/api/auth/oidc/") ||
+      url === "/api/wire/invitations/accept" ||
+      url.startsWith("/api/wire/invitations/token/");
 
     if (shouldSkipAuth) {
       console.log("[AUTH HOOK] Skipping auth for:", url);
