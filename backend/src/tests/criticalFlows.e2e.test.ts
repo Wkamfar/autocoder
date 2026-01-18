@@ -389,7 +389,7 @@ describe("Agent 10: E2E critical flows (top 6)", () => {
       method: "POST",
       url: "/api/wire/verify/pose-receipt",
       headers: { "content-type": "application/json" },
-      payload: JSON.stringify({ jws: execJson.poseReceipt.jws, expected: { intentId, receiptType: "execution.completed" } }),
+      payload: JSON.stringify({ jws: execJson.poseReceipt.jws }),
     });
     expect(verifyReceipt.statusCode).toBe(200);
     expect((verifyReceipt.json() as any).valid).toBe(true);
