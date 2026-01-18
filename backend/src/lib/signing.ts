@@ -1,4 +1,11 @@
-import { createPrivateKey, createPublicKey, sign as cryptoSign, verify as cryptoVerify } from "node:crypto";
+import {
+  createPrivateKey,
+  createPublicKey,
+  sign as cryptoSign,
+  verify as cryptoVerify,
+  type KeyLike,
+  type JsonWebKey,
+} from "node:crypto";
 
 /**
  * Ed25519 signing and verification utilities.
@@ -19,16 +26,16 @@ export interface SigningKey {
  * @param privateKey - Ed25519 private key (64 bytes Buffer or PEM string)
  * @returns Base64url-encoded signature (64 bytes → 86 characters)
  */
-export function signEd25519(message: string, privateKey: Buffer | string): string {
+export function signEd25519(message: string, privateKey: KeyLike): string {
   const payload = Buffer.from(message, "utf8");
 
   // If Buffer, convert to PEM format for Node.js crypto
-  let keyToUse: string | Buffer = privateKey;
+  let keyToUse: KeyLike = privateKey;
   if (Buffer.isBuffer(privateKey)) {
     if (privateKey.length >= 64) {
       const seed = privateKey.subarray(0, 32).toString("base64url");
       const pub = privateKey.subarray(32, 64).toString("base64url");
-      keyToUse = createPrivateKey({
+        keyToUse = createPrivateKey({
         format: "jwk",
         key: {
           kty: "OKP",
@@ -64,17 +71,13 @@ export function signEd25519(message: string, privateKey: Buffer | string): strin
  * @param publicKey - Ed25519 public key (32 bytes Buffer or PEM string)
  * @returns true if signature is valid
  */
-export function verifyEd25519(
-  message: string,
-  signature: string,
-  publicKey: Buffer | string
-): boolean {
+export function verifyEd25519(message: string, signature: string, publicKey: KeyLike): boolean {
   try {
     const payload = Buffer.from(message, "utf8");
     const sigBuffer = Buffer.from(signature, "base64url");
     
     // If Buffer, convert to PEM format for Node.js crypto
-    let keyToUse: string | Buffer = publicKey;
+    let keyToUse: KeyLike = publicKey;
     if (Buffer.isBuffer(publicKey)) {
       // Convert raw 32-byte key to PEM format
       // Ed25519 public key in SPKI format

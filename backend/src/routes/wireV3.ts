@@ -114,7 +114,7 @@ export const wireV3Routes: FastifyPluginAsync = async (app) => {
   // Optional alias: redirect to canonical confirm-sessions endpoint
   app.get("/api/v3/confirm/:sessionId", async (req, reply) => {
     const sessionId = (req.params as any).sessionId;
-    reply.redirect(301, `/api/v3/confirm-sessions/${sessionId}`);
+    reply.redirect(`/api/v3/confirm-sessions/${sessionId}`);
   });
 
   app.post("/api/v3/confirm-sessions/:sessionId/cancel", async (req, reply) => {

@@ -376,7 +376,7 @@ export async function createConfirmationSession(params: {
     return { status: "failed", error: "Recipient not found." };
   }
 
-  const intent = await createIntent({
+  const { intent } = await createIntent({
     orgId,
     userId,
     railsType: "WIRE",
@@ -624,6 +624,9 @@ export async function submitVoice(params: {
       approvalToken: approvalToken.token,
       idempotencyKey: session.clientConfirmationId,
     });
+    if (!execution.executionRef) {
+      throw new Error("Execution reference missing");
+    }
 
     await updateSession(session.id, { state: "sent", transferId: execution.executionRef });
     return {
