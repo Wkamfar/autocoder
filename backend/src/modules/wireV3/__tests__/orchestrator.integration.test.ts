@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, beforeAll } from "vitest";
 import { prisma } from "../../../db/prisma.js";
 import { createConfirmationSession, submitVoice } from "../orchestrator.js";
 import { listIntentEvents } from "../../evidence/eventChain.js";
@@ -6,6 +6,77 @@ import { listIntentEvents } from "../../evidence/eventChain.js";
 const describeDb = process.env.WIRE2_TEST_WITH_DB === "1" ? describe : describe.skip;
 
 describeDb("wire v3 orchestrator (integration)", () => {
+  beforeAll(async () => {
+    const now = new Date();
+    await prisma.organization.upsert({
+      where: { id: "org_1" },
+      update: { name: "Test Org 1" },
+      create: { id: "org_1", name: "Test Org 1", createdAt: now },
+    });
+
+    await prisma.user.upsert({
+      where: { id: "user_1" },
+      update: { orgId: "org_1", email: "user_1@example.com", name: "User One" },
+      create: {
+        id: "user_1",
+        orgId: "org_1",
+        email: "user_1@example.com",
+        name: "User One",
+        role: "ADMIN",
+        permissions: ["intent:create", "intent:approve", "intent:execute"],
+        voiceEnrolled: false,
+        createdAt: now,
+      },
+    });
+
+    await prisma.beneficiary.upsert({
+      where: { id: "benef_1" },
+      update: { orgId: "org_1", displayName: "Test Beneficiary" },
+      create: {
+        id: "benef_1",
+        orgId: "org_1",
+        displayName: "Test Beneficiary",
+        country: "US",
+        railsAllowed: ["WIRE"],
+        bankLast4: "1234",
+        bankTokenHash: "hash_benef_1",
+        version: 1,
+        status: "ACTIVE",
+        createdAt: now,
+        updatedAt: now,
+        lastChangedAt: now,
+        lastChangedBy: "user_1",
+      },
+    });
+
+    const policyId = "policy_org_1_v1";
+    await prisma.policy.upsert({
+      where: { id: policyId },
+      update: { orgId: "org_1", name: "Default Policy", activeVersion: 1 },
+      create: {
+        id: policyId,
+        orgId: "org_1",
+        name: "Default Policy",
+        activeVersion: 1,
+        createdAt: now,
+      },
+    });
+
+    await prisma.policyVersion.upsert({
+      where: { id: `${policyId}_v1` },
+      update: { policyId, version: 1 },
+      create: {
+        id: `${policyId}_v1`,
+        policyId,
+        version: 1,
+        effectiveAt: now,
+        thresholdsJson: "{}",
+        rulesJson: "{}",
+        createdAt: now,
+      },
+    });
+  });
+
   beforeEach(async () => {
     await prisma.voiceProof.deleteMany({});
     await prisma.voiceChallenge.deleteMany({});
@@ -15,14 +86,6 @@ describeDb("wire v3 orchestrator (integration)", () => {
     await prisma.decision.deleteMany({});
     await prisma.executionLedger.deleteMany({});
     await prisma.auditBundle.deleteMany({});
-    try {
-      await prisma.manualReviewCase.deleteMany({});
-    } catch (error: any) {
-      const message = typeof error?.message === "string" ? error.message : "";
-      if (!message.includes("does not exist")) {
-        throw error;
-      }
-    }
     await prisma.intent.deleteMany({});
   });
 

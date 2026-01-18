@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../app.js";
 import { dbAvailable } from "./testDb.js";
+import { prisma } from "../db/prisma.js";
 
 // Integration-ish test: assumes DATABASE_URL points at a migrated+seeded Postgres.
 // Run with:
@@ -19,6 +20,26 @@ describe("wire demo flow", () => {
 
     const headersAlice = { "x-user-id": "user_alice_smith", "content-type": "application/json" };
     const headersBob = { "x-user-id": "user_bob_jones", "content-type": "application/json" };
+
+    await prisma.beneficiary.upsert({
+      where: { id: "benef_vendor_abc" },
+      update: { orgId: "org_demo", displayName: "Demo Vendor" },
+      create: {
+        id: "benef_vendor_abc",
+        orgId: "org_demo",
+        displayName: "Demo Vendor",
+        country: "US",
+        railsAllowed: ["ACH"],
+        bankLast4: "4242",
+        bankTokenHash: "demo_vendor_hash",
+        version: 1,
+        status: "ACTIVE",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastChangedAt: new Date(),
+        lastChangedBy: "user_alice_smith",
+      },
+    });
 
     // Health
     const health = await app.inject({
