@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, beforeAll } from "vitest";
 import { prisma } from "../../../db/prisma.js";
+import { redis } from "../../../lib/redis.js";
 import { createConfirmationSession, submitVoice } from "../orchestrator.js";
 import { listIntentEvents } from "../../evidence/eventChain.js";
 
@@ -70,14 +71,32 @@ describeDb("wire v3 orchestrator (integration)", () => {
         policyId,
         version: 1,
         effectiveAt: now,
-        thresholdsJson: "{}",
-        rulesJson: "{}",
+        thresholdsJson: JSON.stringify({
+          amountStepUpMinor: "100000",
+          dualApprovalRiskScore: 60,
+          criticalRiskScore: 85,
+          newBeneficiaryDays: 7,
+          outOfHoursStartHourLocal: 18,
+          outOfHoursEndHourLocal: 8,
+        }),
+        rulesJson: JSON.stringify({
+          requireDualApprovalForInternationalWire: true,
+          requirePhoneForL3IfMicDenied: true,
+          cooldownMinutesForHighRisk: 10,
+          lockoutAfterFailedAttempts: 3,
+        }),
         createdAt: now,
       },
     });
   });
 
   beforeEach(async () => {
+    if (redis) {
+      const keys = await redis.keys("wirev3:*");
+      if (keys.length > 0) {
+        await redis.del(keys);
+      }
+    }
     await prisma.voiceProof.deleteMany({});
     await prisma.voiceChallenge.deleteMany({});
     await prisma.intentEvent.deleteMany({});

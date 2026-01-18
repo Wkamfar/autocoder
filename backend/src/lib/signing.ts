@@ -104,26 +104,16 @@ export function generateEd25519KeyPair(): {
   privateKeyBase64url: string;
 } {
   const { generateKeyPairSync } = require("node:crypto");
-  const { publicKey, privateKey } = generateKeyPairSync("ed25519", {
-    publicKeyEncoding: { type: "spki", format: "pem" },
-    privateKeyEncoding: { type: "pkcs8", format: "pem" },
-  });
+  const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+  const publicJwk = publicKey.export({ format: "jwk" }) as JsonWebKey;
+  const privateJwk = privateKey.export({ format: "jwk" }) as JsonWebKey;
 
-  // Extract raw key material (32 bytes public, 64 bytes private)
-  // Note: PEM format includes headers, we need raw bytes
-  // For Ed25519, we'll use the PEM format directly with crypto module
-  // But for storage, we'll extract the raw bytes
-  
-  // Convert PEM to raw bytes (simplified - in practice use proper parsing)
-  const publicKeyRaw = Buffer.from(
-    publicKey.replace(/-----BEGIN PUBLIC KEY-----/, "").replace(/-----END PUBLIC KEY-----/, "").replace(/\s/g, ""),
-    "base64"
-  ).slice(-32); // Last 32 bytes are the Ed25519 public key
-  
-  const privateKeyRaw = Buffer.from(
-    privateKey.replace(/-----BEGIN PRIVATE KEY-----/, "").replace(/-----END PRIVATE KEY-----/, "").replace(/\s/g, ""),
-    "base64"
-  ).slice(-64); // Last 64 bytes are the Ed25519 private key
+  if (!publicJwk.x || !privateJwk.d) {
+    throw new Error("Failed to generate Ed25519 key material");
+  }
+
+  const publicKeyRaw = Buffer.from(publicJwk.x, "base64url");
+  const privateKeyRaw = Buffer.from(privateJwk.d, "base64url");
 
   return {
     publicKey: publicKeyRaw,

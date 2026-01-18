@@ -107,7 +107,9 @@ export const wireRoutes: FastifyPluginAsync = async (app) => {
   app.get("/intents/:id", async (req, reply) => {
     const orgId = req.user!.orgId;
     const intent = await getIntent(orgId, (req.params as any).id);
-    if (!intent) return reply.code(404).send({ error: "Intent not found" });
+    if (!intent) {
+      return reply.code(404).send({ error: "Intent not found", code: "INTENT_NOT_FOUND" });
+    }
     return asTransferIntent(intent);
   });
 
@@ -201,7 +203,15 @@ export const wireRoutes: FastifyPluginAsync = async (app) => {
         beneficiaryId: z.string().min(1),
         purpose: z.string().min(1),
       });
-      const body = bodySchema.parse(req.body);
+      const parsed = bodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.code(400).send({
+          error: "Invalid request data",
+          code: "INVALID_REQUEST",
+          details: parsed.error.flatten(),
+        });
+      }
+      const body = parsed.data;
 
       const { intent } = await createIntent({
         orgId: req.user!.orgId,

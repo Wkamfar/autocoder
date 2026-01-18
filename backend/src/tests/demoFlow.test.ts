@@ -41,6 +41,45 @@ describe("wire demo flow", () => {
       },
     });
 
+    const policyId = "policy_org_demo_v1";
+    await prisma.policy.upsert({
+      where: { id: policyId },
+      update: { orgId: "org_demo", name: "Default Policy", activeVersion: 1 },
+      create: {
+        id: policyId,
+        orgId: "org_demo",
+        name: "Default Policy",
+        activeVersion: 1,
+        createdAt: new Date(),
+      },
+    });
+
+    await prisma.policyVersion.upsert({
+      where: { id: `${policyId}_v1` },
+      update: { policyId, version: 1 },
+      create: {
+        id: `${policyId}_v1`,
+        policyId,
+        version: 1,
+        effectiveAt: new Date(),
+        thresholdsJson: JSON.stringify({
+          amountStepUpMinor: "100000",
+          dualApprovalRiskScore: 60,
+          criticalRiskScore: 85,
+          newBeneficiaryDays: 7,
+          outOfHoursStartHourLocal: 18,
+          outOfHoursEndHourLocal: 8,
+        }),
+        rulesJson: JSON.stringify({
+          requireDualApprovalForInternationalWire: true,
+          requirePhoneForL3IfMicDenied: true,
+          cooldownMinutesForHighRisk: 10,
+          lockoutAfterFailedAttempts: 3,
+        }),
+        createdAt: new Date(),
+      },
+    });
+
     // Health
     const health = await app.inject({
       method: "GET",

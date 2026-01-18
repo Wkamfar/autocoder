@@ -185,8 +185,11 @@ describe("Agent 10: E2E critical flows (top 6)", () => {
     });
     expect(inv.statusCode).toBe(201);
     const inviteUrl = (inv.json() as any).inviteUrl as string;
-    expect(inviteUrl).toContain("t=");
-    const token = new URL(inviteUrl).searchParams.get("t");
+    const tokenFromQuery = inviteUrl.includes("t=")
+      ? new URL(inviteUrl).searchParams.get("t")
+      : null;
+    const tokenFromPath = inviteUrl.split("/invite/")[1] || null;
+    const token = tokenFromQuery || tokenFromPath;
     expect(token).toBeTruthy();
 
     // Accept invitation (public)
@@ -301,13 +304,18 @@ describe("Agent 10: E2E critical flows (top 6)", () => {
       payload: JSON.stringify({ language: "EN" }),
     });
     expect(challenge.statusCode).toBe(200);
-    const challengeId = (challenge.json() as any).id as string;
+    const challengeJson = challenge.json() as any;
+    const challengeId = challengeJson.id as string;
 
     const proof = await app.inject({
       method: "POST",
       url: `/api/wire/challenges/${challengeId}/proof`,
       headers: jsonHeaders(adminToken),
-      payload: JSON.stringify({ channel: "BROWSER", transcript: "Authorize transfer", deviceMetadataJson: { ua: "vitest" } }),
+      payload: JSON.stringify({
+        channel: "BROWSER",
+        transcript: challengeJson.challengeText ?? "Authorize transfer",
+        deviceMetadataJson: { ua: "vitest" },
+      }),
     });
     expect(proof.statusCode).toBe(200);
     const proofId = (proof.json() as any).id as string;
