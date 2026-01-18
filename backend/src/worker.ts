@@ -11,6 +11,7 @@ import { runPlaidTransferEventSync } from "./modules/providers/plaid/transferEve
 import { withSemaphore } from "./lib/resilience/semaphore.js";
 import { assertCircuitAllows, recordCircuitFailure, recordCircuitSuccess } from "./lib/resilience/circuitBreaker.js";
 import { processPoseAnchorIntentEventJob } from "./modules/pose/poseAnchoring.js";
+import { processWireV3ExecuteIntentJob } from "./modules/wireV3/executionRetry.js";
 
 function envNumber(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -161,6 +162,28 @@ async function handleJob(job: { id: string; type: string; payloadJson: string; a
 
       case JOB_TYPES.POSE_ANCHOR_INTENT_EVENT: {
         await processPoseAnchorIntentEventJob({ jobId: id, payload });
+        await markJobSucceeded(id);
+        return;
+      }
+
+      case JOB_TYPES.WIRE_V3_EXECUTE_INTENT: {
+        const orgId = (payload as any).orgId as string | undefined;
+        const userId = (payload as any).userId as string | undefined;
+        const intentId = (payload as any).intentId as string | undefined;
+        const sessionId = (payload as any).sessionId as string | undefined;
+        const clientConfirmationId = (payload as any).clientConfirmationId as string | undefined;
+        if (!orgId || !userId || !intentId || !sessionId || !clientConfirmationId) {
+          await markJobDead({ jobId: id, lastError: "missing wire v3 execute payload fields" });
+          return;
+        }
+
+        await processWireV3ExecuteIntentJob({
+          orgId,
+          userId,
+          intentId,
+          sessionId,
+          clientConfirmationId,
+        });
         await markJobSucceeded(id);
         return;
       }

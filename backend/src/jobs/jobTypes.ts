@@ -6,6 +6,7 @@ export const JOB_TYPES = {
   PLAID_TRANSFER_EVENT_SYNC: "plaid.transfer_event.sync",
   // Agent 11: anchor intent events onto POSE chain (via POSE Core HTTP tx submitter)
   POSE_ANCHOR_INTENT_EVENT: "pose.anchor_intent_event",
+  WIRE_V3_EXECUTE_INTENT: "wire_v3.execute_intent",
 } as const;
 
 export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
@@ -55,6 +56,14 @@ export type PoseAnchorIntentEventJobPayload = {
   traceId?: string | null;
 };
 
+export type WireV3ExecuteIntentJobPayload = {
+  orgId: string;
+  userId: string;
+  intentId: string;
+  sessionId: string;
+  clientConfirmationId: string;
+};
+
 export type JobPayloadByType = {
   [JOB_TYPES.WEBHOOK_DELIVERY]: WebhookDeliveryJobPayload;
   [JOB_TYPES.EMAIL_SEND]: EmailSendJobPayload;
@@ -62,5 +71,6 @@ export type JobPayloadByType = {
   [JOB_TYPES.PROVIDER_EVENT_PROCESS]: ProviderEventProcessJobPayload;
   [JOB_TYPES.PLAID_TRANSFER_EVENT_SYNC]: PlaidTransferEventSyncJobPayload;
   [JOB_TYPES.POSE_ANCHOR_INTENT_EVENT]: PoseAnchorIntentEventJobPayload;
+  [JOB_TYPES.WIRE_V3_EXECUTE_INTENT]: WireV3ExecuteIntentJobPayload;
 };
 

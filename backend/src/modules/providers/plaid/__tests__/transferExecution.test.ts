@@ -22,6 +22,26 @@ describe("Plaid Transfer execution connector (mocked)", () => {
     process.env.PLAID_ENV = "sandbox";
 
     if (await dbAvailable()) {
+      const now = new Date();
+      await prisma.organization.upsert({
+        where: { id: "org_test" },
+        update: { name: "Test Org" },
+        create: { id: "org_test", name: "Test Org", createdAt: now },
+      });
+      await prisma.user.upsert({
+        where: { id: "user_test" },
+        update: { orgId: "org_test", email: "user_test@example.com", name: "User Test" },
+        create: {
+          id: "user_test",
+          orgId: "org_test",
+          email: "user_test@example.com",
+          name: "User Test",
+          role: "ADMIN",
+          permissions: ["bank:connect"],
+          voiceEnrolled: false,
+          createdAt: now,
+        },
+      });
       await prisma.bankAccount.deleteMany({});
       await prisma.bankConnection.deleteMany({});
       // minimal connection + account with plaid_account_id in ownershipJson

@@ -9,7 +9,7 @@
  * - Binding hash invalidation
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, beforeAll } from "vitest";
 import { prisma } from "../../../db/prisma.js";
 import { createApproval, countDistinctApprovals, hasUserApproved } from "../approvals.js";
 import { validateTransition, isTransitionAllowed, isTerminalState } from "../stateMachine.js";
@@ -21,6 +21,83 @@ import { IntentStatus } from "@prisma/client";
 const describeDb = process.env.WIRE2_TEST_WITH_DB === "1" ? describe : describe.skip;
 
 describeDb("Agent D: Correctness Invariants", () => {
+  beforeAll(async () => {
+    const now = new Date();
+    await prisma.organization.upsert({
+      where: { id: "org_1" },
+      update: { name: "Test Org 1" },
+      create: { id: "org_1", name: "Test Org 1", createdAt: now },
+    });
+
+    for (const userId of ["user_1", "user_2"]) {
+      await prisma.user.upsert({
+        where: { id: userId },
+        update: { orgId: "org_1", email: `${userId}@example.com`, name: userId },
+        create: {
+          id: userId,
+          orgId: "org_1",
+          email: `${userId}@example.com`,
+          name: userId,
+          role: "ADMIN",
+          permissions: ["intent:create"],
+          voiceEnrolled: false,
+          createdAt: now,
+        },
+      });
+    }
+
+    await prisma.beneficiary.upsert({
+      where: { id: "benef_1" },
+      update: { orgId: "org_1", displayName: "Test Beneficiary" },
+      create: {
+        id: "benef_1",
+        orgId: "org_1",
+        displayName: "Test Beneficiary",
+        country: "US",
+        railsAllowed: ["ACH"],
+        bankLast4: "1234",
+        bankTokenHash: "hash_benef_1",
+        version: 1,
+        status: "ACTIVE",
+        createdAt: now,
+        updatedAt: now,
+        lastChangedAt: now,
+        lastChangedBy: "user_1",
+      },
+    });
+
+    const baseIntent = {
+      orgId: "org_1",
+      createdByUserId: "user_1",
+      railsType: "ACH" as const,
+      amountMinor: "1000",
+      currency: "USD",
+      beneficiaryId: "benef_1",
+      beneficiaryVersion: 1,
+      purpose: "Test intent",
+      status: "DRAFT" as IntentStatus,
+      riskScore: 0,
+      riskRationaleJson: "{}",
+      requiredApprovals: 1,
+      requiredChallengeLevel: "L1" as const,
+      cooldownUntil: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await prisma.intent.upsert({
+      where: { id: "test_intent_1" },
+      update: {},
+      create: { id: "test_intent_1", bindingHash: "binding_hash_1", ...baseIntent },
+    });
+
+    await prisma.intent.upsert({
+      where: { id: "intent_1" },
+      update: {},
+      create: { id: "intent_1", bindingHash: "binding_hash_2", ...baseIntent },
+    });
+  });
+
   beforeEach(async () => {
     // Clean up test data
     await prisma.approval.deleteMany({});

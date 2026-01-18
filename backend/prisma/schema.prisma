@@ -121,6 +121,17 @@ enum JobStatus {
   DEAD
 }
 
+enum ManualReviewStatus {
+  OPEN
+  RESOLVED
+}
+
+enum ManualReviewResolution {
+  APPROVED
+  DENIED
+  RETRY_VOICE
+}
+
 model Organization {
   id        String   @id
   name      String
@@ -130,6 +141,7 @@ model Organization {
   beneficiaries Beneficiary[]
   intents       Intent[]
   policies      Policy[]
+  manualReviewCases ManualReviewCase[]
 
   customDomains CustomDomain[]
   emailDomains  EmailDomain[]
@@ -197,8 +209,36 @@ model User {
   // Agent 6: org-level audit events (actor)
   orgAuditEventsActed  OrgAuditEvent[] @relation("OrgAuditEventActor")
 
+  manualReviewsRequested ManualReviewCase[] @relation("ManualReviewRequestedBy")
+  manualReviewsResolved  ManualReviewCase[] @relation("ManualReviewResolvedBy")
+
   // Multi-tenant constraint helper: enables composite foreign keys to enforce same-org relations.
   @@unique([id, orgId])
+}
+
+model ManualReviewCase {
+  id                String                 @id
+  orgId             String
+  intentId          String
+  sessionId         String                 @unique
+  lockReason        String
+  status            ManualReviewStatus     @default(OPEN)
+  requestedByUserId String
+  resolvedByUserId  String?
+  resolution        ManualReviewResolution?
+  reason            String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  resolvedAt        DateTime?
+
+  org        Organization @relation(fields: [orgId], references: [id])
+  intent     Intent       @relation(fields: [intentId], references: [id])
+  requestedBy User        @relation("ManualReviewRequestedBy", fields: [requestedByUserId, orgId], references: [id, orgId])
+  resolvedBy  User?       @relation("ManualReviewResolvedBy", fields: [resolvedByUserId, orgId], references: [id, orgId])
+
+  @@index([orgId])
+  @@index([intentId])
+  @@index([status])
 }
 
 model PoseIdentity {
@@ -511,6 +551,7 @@ model Intent {
   // Enforce same-org initiator + beneficiary at the DB layer via composite FKs.
   createdBy User @relation("IntentCreatedBy", fields: [createdByUserId, orgId], references: [id, orgId])
   beneficiary Beneficiary @relation(fields: [beneficiaryId, orgId], references: [id, orgId])
+  manualReviewCases ManualReviewCase[]
 
   challenges VoiceChallenge[]
   proofs     VoiceProof[]

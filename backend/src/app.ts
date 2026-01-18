@@ -26,6 +26,7 @@ import { legalEntityRoutes } from "./routes/legalEntities.js";
 import { bankRoutes } from "./routes/banks.js";
 import { providerEventRoutes } from "./routes/providerEvents.js";
 import { poseVerificationRoutes } from "./routes/poseVerification.js";
+import { wireV3Routes } from "./routes/wireV3.js";
 import { getAuthMode, isOidcMode } from "./modules/security/config.js";
 import { metricsPlugin } from "./lib/observability.js";
 import { getHealthStatus, getReadinessStatus } from "./lib/health.js";
@@ -116,6 +117,7 @@ export async function buildApp() {
 
   // Agent 7.1: Public verification materials (JWKS + receipt verifier)
   await app.register(poseVerificationRoutes);
+  await app.register(wireV3Routes);
 
   // Register auth hooks globally (they self-skip /health, /ready, /api/auth/*, /api/signup, etc.)
   // This ensures /api/* and /api/wire/* routes both have access to req.user.

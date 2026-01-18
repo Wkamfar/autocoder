@@ -46,6 +46,8 @@ import WirePublicIntentViewPage from './wire/pages/WirePublicIntentViewPage'
 import WireFastWireTestPage from './wire/pages/WireFastWireTestPage'
 import WireOidcCallbackPage from "./wire/pages/WireOidcCallbackPage"
 import WireBeneficiaryConfirmPage from './wire/pages/WireBeneficiaryConfirmPage'
+import ConfirmTransferPage from "./wire-v3/ConfirmTransferPage"
+import { V3Gate } from "./wire-v3/V3Gate"
 import './index.css'
 import './styles/pose.css'
 import { ApiModeIndicator } from './wire/components/ApiModeIndicator'
@@ -74,6 +76,14 @@ function WireApp() {
           <Route path="/public/intents/:id" element={<WirePublicIntentViewPage />} />
           <Route path="/test" element={<WireFastWireTestPage />} />
           <Route path="/beneficiaries/confirm" element={<WireBeneficiaryConfirmPage />} />
+          <Route
+            path="/v3"
+            element={
+              <V3Gate>
+                <ConfirmTransferPage />
+              </V3Gate>
+            }
+          />
           <Route path="/" element={<WirePage />}>
             <Route index element={<WireIntentsPage />} />
             <Route path="admin" element={<WireAdminDashboardPage />} />

@@ -16,6 +16,73 @@ describe("Agent D: Production Readiness", () => {
 
   beforeAll(async () => {
     dbReady = await dbAvailable();
+    if (!dbReady) return;
+    const now = new Date();
+    await prisma.organization.upsert({
+      where: { id: "org_1" },
+      update: { name: "Test Org 1" },
+      create: { id: "org_1", name: "Test Org 1", createdAt: now },
+    });
+
+    await prisma.user.upsert({
+      where: { id: "user_1" },
+      update: { orgId: "org_1", email: "user_1@example.com", name: "user_1" },
+      create: {
+        id: "user_1",
+        orgId: "org_1",
+        email: "user_1@example.com",
+        name: "user_1",
+        role: "ADMIN",
+        permissions: ["intent:create"],
+        voiceEnrolled: false,
+        createdAt: now,
+      },
+    });
+
+    await prisma.beneficiary.upsert({
+      where: { id: "ben_1" },
+      update: { orgId: "org_1", displayName: "Test Beneficiary" },
+      create: {
+        id: "ben_1",
+        orgId: "org_1",
+        displayName: "Test Beneficiary",
+        country: "US",
+        railsAllowed: ["ACH"],
+        bankLast4: "1234",
+        bankTokenHash: "hash_ben_1",
+        version: 1,
+        status: "ACTIVE",
+        createdAt: now,
+        updatedAt: now,
+        lastChangedAt: now,
+        lastChangedBy: "user_1",
+      },
+    });
+
+    await prisma.intent.upsert({
+      where: { id: "intent_1" },
+      update: {},
+      create: {
+        id: "intent_1",
+        orgId: "org_1",
+        createdByUserId: "user_1",
+        railsType: "ACH",
+        amountMinor: "1000",
+        currency: "USD",
+        beneficiaryId: "ben_1",
+        beneficiaryVersion: 1,
+        purpose: "Test intent",
+        status: "DRAFT",
+        riskScore: 0,
+        riskRationaleJson: "{}",
+        requiredApprovals: 1,
+        requiredChallengeLevel: "L1",
+        bindingHash: "binding_1",
+        cooldownUntil: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
   });
 
   beforeEach(async () => {

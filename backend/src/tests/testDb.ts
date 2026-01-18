@@ -11,6 +11,7 @@ import net from "node:net";
 export async function dbAvailable(): Promise<boolean> {
   const url = String(process.env.DATABASE_URL || "").trim();
   if (!url) return false;
+  if (process.env.SKIP_DB_TESTS === "1") return false;
 
   // Fast pre-check: avoid Prisma emitting noisy connection errors when the host/port is down.
   try {
