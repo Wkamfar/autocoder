@@ -135,6 +135,9 @@ export function createRateLimitMiddleware(config: {
   redisKeyPrefix?: string;
 }) {
   return async (req: FastifyRequest, reply: FastifyReply) => {
+    if (process.env.NODE_ENV === "test" || process.env.RATE_LIMIT_DISABLE === "true") {
+      return;
+    }
     try {
       const scopes: RateLimitScope[] = (config.scopes && config.scopes.length)
         ? config.scopes
