@@ -25,18 +25,32 @@ export function signEd25519(message: string, privateKey: Buffer | string): strin
   // If Buffer, convert to PEM format for Node.js crypto
   let keyToUse: string | Buffer = privateKey;
   if (Buffer.isBuffer(privateKey)) {
-    // Convert raw 32-byte seed into PKCS#8 for Ed25519.
-    const pkcs8Header = Buffer.from([
-      0x30, 0x2e, // SEQUENCE
-      0x02, 0x01, 0x00, // version
-      0x30, 0x05, // AlgorithmIdentifier
-      0x06, 0x03, 0x2b, 0x65, 0x70, // OID for Ed25519
-      0x04, 0x22, // OCTET STRING
-      0x04, 0x20, // length of key material
-    ]);
-    const keyDer = Buffer.concat([pkcs8Header, privateKey.slice(0, 32)]);
-    const keyPem = `-----BEGIN PRIVATE KEY-----\n${keyDer.toString("base64")}\n-----END PRIVATE KEY-----`;
-    keyToUse = createPrivateKey(keyPem);
+    if (privateKey.length >= 64) {
+      const seed = privateKey.subarray(0, 32).toString("base64url");
+      const pub = privateKey.subarray(32, 64).toString("base64url");
+      keyToUse = createPrivateKey({
+        format: "jwk",
+        key: {
+          kty: "OKP",
+          crv: "Ed25519",
+          d: seed,
+          x: pub,
+        },
+      });
+    } else {
+      // Convert raw 32-byte seed into PKCS#8 for Ed25519.
+      const pkcs8Header = Buffer.from([
+        0x30, 0x2e, // SEQUENCE
+        0x02, 0x01, 0x00, // version
+        0x30, 0x05, // AlgorithmIdentifier
+        0x06, 0x03, 0x2b, 0x65, 0x70, // OID for Ed25519
+        0x04, 0x22, // OCTET STRING
+        0x04, 0x20, // length of key material
+      ]);
+      const keyDer = Buffer.concat([pkcs8Header, privateKey.slice(0, 32)]);
+      const keyPem = `-----BEGIN PRIVATE KEY-----\n${keyDer.toString("base64")}\n-----END PRIVATE KEY-----`;
+      keyToUse = createPrivateKey(keyPem);
+    }
   }
 
   const signature = cryptoSign(null, payload, keyToUse);
@@ -104,7 +118,8 @@ export function generateEd25519KeyPair(): {
   }
 
   const publicKeyRaw = Buffer.from(publicJwk.x, "base64url");
-  const privateKeyRaw = Buffer.from(privateJwk.d, "base64url");
+  const privateKeySeed = Buffer.from(privateJwk.d, "base64url");
+  const privateKeyRaw = Buffer.concat([privateKeySeed, publicKeyRaw]);
 
   return {
     publicKey: publicKeyRaw,
