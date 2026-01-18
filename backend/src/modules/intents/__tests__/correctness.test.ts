@@ -319,6 +319,7 @@ describeDb("Agent D: Correctness Invariants", () => {
     it("should create execution ledger entry", async () => {
       const { executionRef, ledgerEntry } = await createExecutionLedgerEntry({
         intentId: testIntentId,
+        orgId: "org_1",
         approvalTokenHash: testTokenHash,
         bindingHash: testBindingHash,
         executedByUserId: testUserId,
@@ -333,6 +334,7 @@ describeDb("Agent D: Correctness Invariants", () => {
     it("should detect if intent has been executed", async () => {
       const { executionRef } = await createExecutionLedgerEntry({
         intentId: testIntentId,
+        orgId: "org_1",
         approvalTokenHash: testTokenHash,
         bindingHash: testBindingHash,
         executedByUserId: testUserId,
@@ -356,6 +358,7 @@ describeDb("Agent D: Correctness Invariants", () => {
     it("should not detect execution for PENDING status", async () => {
       await createExecutionLedgerEntry({
         intentId: testIntentId,
+        orgId: "org_1",
         approvalTokenHash: testTokenHash,
         bindingHash: testBindingHash,
         executedByUserId: testUserId,

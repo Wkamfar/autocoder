@@ -4,9 +4,10 @@ import { createSession, getSession } from "../sessionStore.js";
 import { storeClientConfirmationId, lookupByClientConfirmationId } from "../idempotency.js";
 import type { ConfirmationSession } from "../types.js";
 
-describe("wire v3 stores (memory fallback)", () => {
+const describeMemory = redis ? describe.skip : describe;
+
+describeMemory("wire v3 stores (memory fallback)", () => {
   it("stores and retrieves sessions in memory when Redis is unavailable", async () => {
-    expect(redis).toBeNull();
     const session: ConfirmationSession = {
       id: "session_1",
       orgId: "org_1",
@@ -32,7 +33,6 @@ describe("wire v3 stores (memory fallback)", () => {
   });
 
   it("stores and retrieves idempotency records in memory when Redis is unavailable", async () => {
-    expect(redis).toBeNull();
     await storeClientConfirmationId({
       orgId: "org_1",
       userId: "user_1",

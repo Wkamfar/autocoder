@@ -145,19 +145,21 @@ describe("Agent D: Production Readiness", () => {
     it("should validate approval token expiration", async () => {
       if (!dbReady) return;
       // Create expired token
+      const tokenId = `expired_token_${Date.now()}`;
+      const tokenHash = `hash_expired_${Date.now()}`;
       const expiredToken = await prisma.approvalToken.create({
         data: {
-          id: "expired_token",
+          id: tokenId,
           intentId: "intent_1",
           orgId: "org_1",
-          tokenHash: "hash_expired",
+          tokenHash,
           bindingHash: "binding_1",
           expiresAt: new Date(Date.now() - 1000), // Expired 1 second ago
         },
       });
 
       const result = await validateApprovalToken(
-        expiredToken.tokenHash,
+        tokenHash,
         "intent_1",
         "binding_1"
       );

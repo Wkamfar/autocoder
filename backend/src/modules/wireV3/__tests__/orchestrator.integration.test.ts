@@ -7,10 +7,16 @@ const describeDb = process.env.WIRE2_TEST_WITH_DB === "1" ? describe : describe.
 
 describeDb("wire v3 orchestrator (integration)", () => {
   beforeEach(async () => {
-    await prisma.intentEvent.deleteMany({});
-    await prisma.intent.deleteMany({});
-    await prisma.voiceChallenge.deleteMany({});
     await prisma.voiceProof.deleteMany({});
+    await prisma.voiceChallenge.deleteMany({});
+    await prisma.intentEvent.deleteMany({});
+    await prisma.approval.deleteMany({});
+    await prisma.approvalToken.deleteMany({});
+    await prisma.decision.deleteMany({});
+    await prisma.executionLedger.deleteMany({});
+    await prisma.auditBundle.deleteMany({});
+    await prisma.manualReviewCase.deleteMany({});
+    await prisma.intent.deleteMany({});
   });
 
   it("returns same session for same clientConfirmationId", async () => {
