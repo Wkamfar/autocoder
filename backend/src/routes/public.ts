@@ -91,6 +91,8 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
           "api:view",
           "webhook:create",
           "webhook:view",
+          "webhook:edit",
+          "webhook:delete",
           "bank:connect",
           "bank:view",
           "bank:admin",

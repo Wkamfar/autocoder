@@ -348,7 +348,7 @@ export function requirePermission(permission: string) {
     }
     
     const perms: string[] = req.user.permissions ?? [];
-    if (!perms.includes(permission)) {
+    if (!perms.includes(permission) && !perms.includes("*")) {
       await logAuthEvent({
         userId: req.user.id,
         orgId: req.user.orgId,

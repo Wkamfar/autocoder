@@ -12,6 +12,8 @@ describe("wire demo flow", () => {
   it("can create -> challenge -> proof -> approve -> execute", async () => {
     if (!(await dbAvailable())) return;
 
+    const previousAuthMode = process.env.AUTH_MODE;
+    process.env.AUTH_MODE = "demo";
     const app = await buildApp();
     await app.ready();
 
@@ -108,6 +110,11 @@ describe("wire demo flow", () => {
     expect(events[0].prevHash).toBe(null);
 
     await app.close();
+    if (previousAuthMode === undefined) {
+      delete process.env.AUTH_MODE;
+    } else {
+      process.env.AUTH_MODE = previousAuthMode;
+    }
   });
 });
 

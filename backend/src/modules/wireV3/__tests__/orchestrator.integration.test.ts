@@ -15,7 +15,14 @@ describeDb("wire v3 orchestrator (integration)", () => {
     await prisma.decision.deleteMany({});
     await prisma.executionLedger.deleteMany({});
     await prisma.auditBundle.deleteMany({});
-    await prisma.manualReviewCase.deleteMany({});
+    try {
+      await prisma.manualReviewCase.deleteMany({});
+    } catch (error: any) {
+      const message = typeof error?.message === "string" ? error.message : "";
+      if (!message.includes("does not exist")) {
+        throw error;
+      }
+    }
     await prisma.intent.deleteMany({});
   });
 

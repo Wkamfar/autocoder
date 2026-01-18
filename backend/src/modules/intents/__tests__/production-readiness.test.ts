@@ -147,13 +147,14 @@ describe("Agent D: Production Readiness", () => {
       // Create expired token
       const tokenId = `expired_token_${Date.now()}`;
       const tokenHash = `hash_expired_${Date.now()}`;
+      const bindingHash = `binding_${Date.now()}`;
       const expiredToken = await prisma.approvalToken.create({
         data: {
           id: tokenId,
           intentId: "intent_1",
           orgId: "org_1",
           tokenHash,
-          bindingHash: "binding_1",
+          bindingHash,
           expiresAt: new Date(Date.now() - 1000), // Expired 1 second ago
         },
       });
@@ -161,7 +162,7 @@ describe("Agent D: Production Readiness", () => {
       const result = await validateApprovalToken(
         tokenHash,
         "intent_1",
-        "binding_1"
+        bindingHash
       );
 
       expect(result.valid).toBe(false);

@@ -348,6 +348,7 @@ describeDb("Agent D: Correctness Invariants", () => {
 
       const checkResult = await hasIntentBeenExecuted(
         testIntentId,
+        "org_1",
         testBindingHash
       );
 
@@ -366,6 +367,7 @@ describeDb("Agent D: Correctness Invariants", () => {
 
       const checkResult = await hasIntentBeenExecuted(
         testIntentId,
+        "org_1",
         testBindingHash
       );
 
