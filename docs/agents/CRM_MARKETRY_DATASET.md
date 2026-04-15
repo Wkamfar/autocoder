@@ -10,8 +10,8 @@ This file exists so **agents and humans** merging `integration/sales-v7` know wh
 
 | Path | Description |
 |------|-------------|
-| [`examples/marketry_chicago_targets.csv`](../../examples/marketry_chicago_targets.csv) | **Generated** RFC-4180 CSV (44 unique domains). **Do not hand-edit** — regenerate from chunks. |
-| [`datasets/marketry/chunk-01.mjs`](../../datasets/marketry/chunk-01.mjs) … [`chunk-05.mjs`](../../datasets/marketry/chunk-05.mjs) | Source of truth (editable narratives, one row per company). |
+| [`examples/marketry_chicago_targets.csv`](../../examples/marketry_chicago_targets.csv) | **Canonical import file** (44 unique domains). May be **edited directly** (e.g. quoted `opportunity_hypothesis` / `why_now`). |
+| [`datasets/marketry/chunk-01.mjs`](../../datasets/marketry/chunk-01.mjs) … [`chunk-05.mjs`](../../datasets/marketry/chunk-05.mjs) | Alternate source for regeneration; **out of sync** with the CSV is OK until you run `dataset:marketry` (which **overwrites** the CSV from chunks). If the CSV is the master, update chunks before regenerating, or skip `dataset:marketry`. |
 | [`scripts/publish-marketry-dataset.mjs`](../../scripts/publish-marketry-dataset.mjs) | Merges chunks, dedupes by domain, writes `unknown@<domain>` emails, emits `examples/marketry_chicago_targets.csv`. |
 
 ## Regenerate CSV after editing narratives
