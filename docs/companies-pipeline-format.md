@@ -15,7 +15,7 @@ Extra columns are stored in SQLite on the **account** as:
   - `source`: `csv_import`
   - `vertical`: `parametric_risk_markets`
   - `imported_at`: ISO timestamp
-  - `raw`: key/value map of **every non-core column** except `segment` (strings), including firmographics (`employee_band`, `revenue_band`, `regions`, …), evidence (`evidence_url`, `hq_verified`, …), intro path, risk tags (`primary_risk_vector`), and outreach / record metadata (`contact_confidence`, `email_verified`, `outreach_eligible`, `record_type`).
+  - `raw`: key/value map of **every non-core column** except `segment` (strings), including firmographics (`employee_band`, `revenue_band`, `regions`, …), evidence (`evidence_url`, …), intro path + `intro_path_confidence`, HQ/domain provenance (`hq_verified`, `hq_verification_status`, `domain_verified`, `domain_verification_status`), risk tags (`primary_risk_vector`), outreach / record metadata (`contact_confidence`, `email_verified`, `outreach_eligible`, `record_type`, `contact_source_note`).
 
 If you include **`opportunity_hypothesis`**, **`why_now`**, **`icp_fit_score`**, **`warmth_score`**, **`buyer_roles`**, **`tier`**, those values are folded into **`score_json.opportunity_hypothesis`** and **`icp_snapshot`** (sheet scores are treated as 0–10 → normalized 0–1), not only into `pipeline.raw`.
 

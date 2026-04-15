@@ -31,15 +31,17 @@ node dist/index.js sales apply-pending <approver>
 
 Importer details: [`docs/companies-pipeline-format.md`](../companies-pipeline-format.md).
 
-## Column contract (v5)
+## Column contract (v6)
 
 Core importer columns: `company`, `email` (or derive from `domain`), `domain`, optional `name`.
 
 Enrichment columns in the current file (all land in `score_json.pipeline.raw` unless consumed by scoring):
 
-`tier`, `segment`, `warmth_score`, `icp_fit_score`, `buyer_roles`, `opportunity_hypothesis`, `why_now`, `notes`, `employee_band`, `revenue_band`, `regions`, `regulated`, `parametric_maturity`, `innovation_partner_fit`, `captive_or_alt_risk`, `hq_city`, `hq_state`, `hq_country`, `ownership`, `linkedin_company_url`, `evidence_url`, `evidence_note`, `evidence_date`, `intro_path`, `hq_verified`, `domain_verified`, `primary_risk_vector` (pipe-delimited tags, e.g. `weather|fuel`), `contact_confidence`, `email_verified`, `outreach_eligible`, `record_type`
+`tier`, `segment`, `warmth_score`, `icp_fit_score`, `buyer_roles`, `opportunity_hypothesis`, `why_now`, `notes`, `employee_band`, `revenue_band`, `regions`, `regulated`, `parametric_maturity`, `innovation_partner_fit`, `captive_or_alt_risk`, `hq_city`, `hq_state`, `hq_country`, `ownership`, `linkedin_company_url`, `evidence_url`, `evidence_note`, `evidence_date`, `intro_path`, `intro_path_confidence`, `hq_verified`, `hq_verification_status`, `domain_verified`, `domain_verification_status`, `primary_risk_vector` (pipe-delimited tags, e.g. `weather|fuel`), `contact_confidence`, `email_verified`, `outreach_eligible`, `record_type`, `contact_source_note`
 
-`hq_verified` uses `verified` vs `heuristic` (manual / strong signal vs inferred). Seed rows use `contact_confidence=low`, `email_verified=false`, `outreach_eligible=false`, `record_type=company_seed` until enriched.
+**Provenance split (v6):** `intro_path_confidence` is `heuristic` vs `unverified` (e.g. non-Chicago intro path). **`hq_verified`** is the **location claim**: `yes` | `approx` | `unverified` (not the same as the old `verified`/`heuristic` single column). **`hq_verification_status`** is *how* the HQ was assessed (seed data: `heuristic`). **`domain_verification_status`** parallels domain checks (`verified` when the corporate domain was confirmed offline). **`contact_source_note`** records synthetic contacts (e.g. `placeholder_domain_email` for `unknown@domain`).
+
+Seed rows use `contact_confidence=low`, `email_verified=false`, `outreach_eligible=false`, `record_type=company_seed` until enriched.
 
 ## Notes
 
