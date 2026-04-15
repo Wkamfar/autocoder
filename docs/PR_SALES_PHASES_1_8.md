@@ -6,6 +6,8 @@ This PR ships the sales decision stack end to end: Pair Debate, outcomes/evals, 
 
 The goal is to turn NightShift sales from a command-driven analysis tool into a **decision operating system**: identify what matters, reason adversarially, surface the best next move, and make that move easy to review and act on in CLI or Discord.
 
+**Integration note:** `integration/sales-v7` combines the **CRM Builder / v7 pipeline** CLI (`import-csv`, `first-ship`, …) with the **Pair Debate / decision-engine** CLI (`pair-debate`, `top-decisions`, …). Analytic commands run without opening the CRM SQLite DB; v7 commands call `initSalesMode()` first. Discord loads both **`!ns sales`** (`salesCommands.ts`) and **slash Sales OS** (`installSalesDecisionOs`).
+
 **Suggested PR title:** `feat(sales): Pair Debate + decision engine + Discord Sales OS (Phases 1–8)`
 
 ---
