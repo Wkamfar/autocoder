@@ -1,0 +1,18 @@
+{
+  "patterns": [
+    {
+      "scenario": "stalled_proposal_7_14d_silence",
+      "best_action": "short priority-check email with single CTA",
+      "win_rate": 0.61,
+      "sample_size": 127,
+      "notes": "Illustrative seed — replace with your aggregated outcomes"
+    },
+    {
+      "scenario": "pricing_stage_silence",
+      "best_action": "clarify economic buyer + timeline in 4 sentences or less",
+      "win_rate": 0.52,
+      "sample_size": 54,
+      "notes": "Seed file; pair with PAIR_DEBATE_PATTERNS_SEED"
+    }
+  ]
+}

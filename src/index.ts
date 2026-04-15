@@ -48,17 +48,17 @@ function installShutdownHandlers(label: string): void {
 async function main(): Promise<void> {
   const [, , mode, ...rest] = process.argv;
 
+  if (mode === 'sales') {
+    const { runSalesCli } = await import('./sales/cli.js');
+    await runSalesCli(rest);
+    process.exit(0);
+  }
+
   // Doctor runs without touching the daemon (no state dir, no loop init).
   if (mode === 'doctor') {
     const report = await runDoctor();
     console.log(formatDoctorReport(report));
     process.exit(report.fatal ? 1 : 0);
-  }
-
-  if (mode === 'sales') {
-    const { runSalesCli } = await import('./sales/cli.js');
-    await runSalesCli(rest);
-    process.exit(0);
   }
 
   await daemon.init();

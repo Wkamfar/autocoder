@@ -1,0 +1,17 @@
+{
+  "action_id": "sa_demo_001",
+  "action_type": "send_followup",
+  "status": "approved",
+  "execution_mode": "assisted",
+  "approval_required": true,
+  "origin": "pair_debate",
+  "run_id": "pd-run-sample",
+  "deal_id": "acme-expansion-2026",
+  "account_id": "acme-corp",
+  "decision_context": "Short priority-check with single CTA",
+  "final_message": "Hi Jordan — quick check on timing for the SSO expansion. One question: does next Tuesday work for a 20m alignment call?",
+  "recipient": { "email": "jordan@acme.example" },
+  "created_at": "2026-04-15T12:00:00.000Z",
+  "approved_by": "rep@yourcompany.com",
+  "approved_at": "2026-04-15T12:05:00.000Z"
+}

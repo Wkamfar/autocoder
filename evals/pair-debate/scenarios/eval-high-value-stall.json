@@ -1,0 +1,32 @@
+{
+  "id": "eval-high-value-stall",
+  "title": "High ACV stalled in late stage",
+  "world": {
+    "accounts": [{ "id": "acc-hv", "name": "Globex Corp" }],
+    "contacts": [{ "id": "c-hv", "account_id": "acc-hv", "name": "Dana", "role": "CIO" }],
+    "deals": [
+      {
+        "id": "deal-hv",
+        "account_id": "acc-hv",
+        "stage": "proposal",
+        "value_cents": 250000000,
+        "currency": "USD",
+        "last_touch_days_ago": 14,
+        "timing_sensitivity": "high",
+        "decision_deadline": "2026-04-20T00:00:00Z"
+      }
+    ],
+    "activities": [
+      {
+        "id": "a-hv",
+        "account_id": "acc-hv",
+        "deal_id": "deal-hv",
+        "at": "2026-03-31T08:00:00Z",
+        "type": "email_outbound",
+        "summary": "Sent ROI deck; no response since."
+      }
+    ]
+  },
+  "scope": { "kind": "deal", "id": "deal-hv" },
+  "expect": { "dossier_substrings": ["Globex", "proposal"], "min_dossier_length": 100 }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "eval-silent-rejection",
+  "title": "Long silence — possible silent no",
+  "world": {
+    "accounts": [{ "id": "acc-sr", "name": "Blue Yonder Air" }],
+    "contacts": [{ "id": "c-sr", "account_id": "acc-sr", "name": "Taylor", "role": "IT" }],
+    "deals": [
+      {
+        "id": "deal-sr",
+        "account_id": "acc-sr",
+        "stage": "proposal",
+        "last_touch_days_ago": 21,
+        "next_planned_action": "none"
+      }
+    ],
+    "activities": [
+      {
+        "id": "a-sr",
+        "account_id": "acc-sr",
+        "deal_id": "deal-sr",
+        "at": "2026-03-24T09:00:00Z",
+        "type": "email_outbound",
+        "summary": "Final pricing sent; no opens on tracking."
+      }
+    ]
+  },
+  "scope": { "kind": "deal", "id": "deal-sr" },
+  "expect": { "dossier_substrings": ["proposal", "Blue Yonder"], "min_dossier_length": 80 }
+}

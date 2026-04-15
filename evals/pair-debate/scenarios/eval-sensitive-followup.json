@@ -1,0 +1,31 @@
+{
+  "id": "eval-sensitive-followup",
+  "title": "Sensitive follow-up after exec intro",
+  "world": {
+    "accounts": [{ "id": "acc-sf", "name": "Northwind", "notes": "CEO intro last week" }],
+    "contacts": [
+      { "id": "c-sf", "account_id": "acc-sf", "name": "Pat Kim", "role": "VP Ops" }
+    ],
+    "deals": [
+      {
+        "id": "deal-sf",
+        "account_id": "acc-sf",
+        "stage": "qualification",
+        "last_touch_days_ago": 3,
+        "timing_sensitivity": "high"
+      }
+    ],
+    "activities": [
+      {
+        "id": "a-sf",
+        "account_id": "acc-sf",
+        "deal_id": "deal-sf",
+        "at": "2026-04-12T10:00:00Z",
+        "type": "meeting",
+        "summary": "CEO asked for light-touch follow-up; no hard ask yet."
+      }
+    ]
+  },
+  "scope": { "kind": "deal", "id": "deal-sf" },
+  "expect": { "dossier_substrings": ["Northwind", "qualification"], "min_dossier_length": 80 }
+}

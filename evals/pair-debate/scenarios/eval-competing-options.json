@@ -1,0 +1,29 @@
+{
+  "id": "eval-competing-options",
+  "title": "Buyer comparing two vendors",
+  "world": {
+    "accounts": [{ "id": "acc-co", "name": "Litware" }],
+    "contacts": [{ "id": "c-co", "account_id": "acc-co", "name": "Quinn", "role": "Procurement" }],
+    "deals": [
+      {
+        "id": "deal-co",
+        "account_id": "acc-co",
+        "stage": "negotiation",
+        "objections_raised": ["Evaluating Vendor B"],
+        "last_touch_days_ago": 4
+      }
+    ],
+    "activities": [
+      {
+        "id": "a-co",
+        "account_id": "acc-co",
+        "deal_id": "deal-co",
+        "at": "2026-04-10T14:00:00Z",
+        "type": "email_inbound",
+        "summary": "Asking for side-by-side on three features vs competitor."
+      }
+    ]
+  },
+  "scope": { "kind": "deal", "id": "deal-co" },
+  "expect": { "dossier_substrings": ["negotiation", "Litware"], "min_dossier_length": 90 }
+}

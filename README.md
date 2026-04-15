@@ -12,7 +12,12 @@ runs.
 ## What this repo contains
 
 A working skeleton of the design document in `DESIGN.md` / the original spec —
-Phase 1 and Phase 2 are implemented end-to-end, with hooks for Phases 3–4.
+Phases 1–5 of the **sales / Pair Debate** track are partially implemented: core
+debate (Phase 1), measurement and eval (Phase 2), a **decision engine** (Phase 3),
+**SalesAction + policy** (Phase 4), and a **`SalesStrategyProfile` + extraction**
+layer (Phase 5 — interpretable learning from outcomes; adaptive Closer hints;
+optional priority boosts). See `docs/sales-decision-engine.md`,
+`docs/sales-execution.md`, and `docs/sales-intelligence.md`.
 
 ```
 src/
@@ -229,6 +234,42 @@ The following items from the v2.1 addendum are live in-tree:
 - Web dashboard.
 - Gemini / Cursor Agent engine adapters.
 - Direct OpenClaw bot cross-talk.
+
+## Sales — Pair Debate (Phases 1–5)
+
+- **Phase 1 — Core engine:** `nightshift sales pair-debate --deal <id>` (Closer +
+  BuyerMind + synthesis). Advisory-only; exports JSON/Memo for review.
+- **Phase 2 — Measurement:** outcome logging (`pair-debate-outcome`), pattern
+  recall with honest sample floors, eval rubric, optional heuristic `score-run`,
+  A/B `compare-decisions`.
+- **Phase 3 — Decision engine (operating layer):** ranks **which** open deals
+  should get attention *now* — `DecisionScore` + trigger rules +  
+  `nightshift sales top-decisions`. This does **not** auto-run debates or touch
+  the CRM; it is a co-pilot style prioritization surface. Full schema and env
+  tunables: [`docs/sales-decision-engine.md`](docs/sales-decision-engine.md).
+- **Phase 4 — Controlled execution:** `SalesAction` JSON schema + layered policy
+  (policy / suppression / approval), audit log, and CLI `sales-action policy-eval`.
+  Default posture is **assisted** (human sends); `auto` is downgraded unless
+  `SALES_EXEC_AUTO_SEND_ENABLED=1`. Details: [`docs/sales-execution.md`](docs/sales-execution.md).
+- **Phase 5 — Compounding intelligence:** `SalesStrategyProfile` derived from
+  outcome logs (+ optional CRM world join). CLI `strategy-extract` writes
+  `sales-strategy-profile.json`; Pair Debate injects **adaptive Closer hints** when
+  that file exists; `top-decisions` can apply transparent **`learned_priority_boost`**
+  by stage/value segment. [`docs/sales-intelligence.md`](docs/sales-intelligence.md).
+
+Quick start (requires `state/sales-world.json` or `SALES_WORLD_JSON`):
+
+```bash
+nightshift sales top-decisions --limit 10
+nightshift sales pair-debate --deal <id-from-list>
+nightshift sales sales-action policy-eval examples/sales-action.sample.json examples/sales-action-context.sample.json
+nightshift sales strategy-extract --world examples/sales-world.sample.json
+```
+
+**Discord (optional):** with `DISCORD_GUILD_ID` + `applications.commands` invite scope,
+the daemon registers **slash commands** (`/top-decisions`, `/debate`, `/compare`,
+`/send`, `/outcome`, `/sales`) that call the same sales services — see
+[`DISCORD_SETUP.md`](DISCORD_SETUP.md).
 
 ## Development
 

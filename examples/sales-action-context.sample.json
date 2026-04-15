@@ -1,0 +1,7 @@
+{
+  "deal_value_usd": 78000,
+  "enterprise_deal": false,
+  "recipient_email": "jordan@acme.example",
+  "message_body": "Hi Jordan — quick check on timing for the SSO expansion. One question: does next Tuesday work for a 20m alignment call?",
+  "account_opted_out": false
+}

@@ -11,6 +11,7 @@ import { Logger } from '../utils/logger.js';
 import { ComparisonReport, RunState, Task, TaskResult } from '../types.js';
 import { COMMAND_HELP, handleCommand } from './commands.js';
 import { handleSalesCommand, SALES_COMMAND_HELP } from './salesCommands.js';
+import { installSalesDecisionOs } from './salesOs/install.js';
 
 export class ClawBot {
   private client: Client;
@@ -36,6 +37,7 @@ export class ClawBot {
       return;
     }
     this.client.on('messageCreate', (m) => this.onMessage(m));
+    installSalesDecisionOs(this.client);
     this.client.once('ready', async () => {
       this.log.info(`logged in as ${this.client.user?.tag}`);
       if (config.discord.channelId) {
