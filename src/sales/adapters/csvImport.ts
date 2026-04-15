@@ -10,35 +10,73 @@ import {
   nowIso,
 } from '../builder/crmMutationHelpers.js';
 
+const CORE_HEADERS = new Set(['company', 'domain', 'email', 'name']);
+
 export interface CsvImportRow {
   company: string;
   domain?: string;
   email: string;
   name?: string;
+  /** Any non-core column → flexible pipeline / ICP / metrics (string values). */
+  extras: Record<string, string>;
 }
 
 /**
- * Minimal CSV: headers company,domain,email,name
- * Persists CRMEntitySource per row, proposes create_account + create_contact mutations.
- * Run mutation apply, then optionally propose create_deal via `sales propose-deals` or planner.
+ * CSV: required columns `company`, `email`. Optional: `domain`, `name`.
+ * Any **additional** headers are stored in `extras` and, on apply, merged into
+ * `accounts.score_json` under `pipeline.raw` plus optional `segment` from a `segment` column.
+ *
+ * Avoid commas inside fields unless you use a proper CSV exporter; tabs are OK in values if you don't split on tab.
  */
 export function parseCsv(content: string): CsvImportRow[] {
   const lines = content.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
-  const header = lines[0].toLowerCase().split(',').map((s) => s.trim());
-  const idx = (name: string) => header.indexOf(name);
+  const header = lines[0].split(',').map((s) => s.trim().toLowerCase());
+  const col = (name: string) => header.indexOf(name);
+
   const rows: CsvImportRow[] = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(',').map((s) => s.trim());
+    const extras: Record<string, string> = {};
+    for (let hi = 0; hi < header.length; hi++) {
+      const h = header[hi];
+      if (!h || CORE_HEADERS.has(h)) continue;
+      const v = cols[hi]?.trim();
+      if (v) extras[h] = v;
+    }
     const row: CsvImportRow = {
-      company: cols[idx('company')] ?? '',
-      domain: cols[idx('domain')] || undefined,
-      email: cols[idx('email')] ?? '',
-      name: cols[idx('name')] || undefined,
+      company: col('company') >= 0 ? (cols[col('company')] ?? '') : '',
+      domain: col('domain') >= 0 ? cols[col('domain')] || undefined : undefined,
+      email: col('email') >= 0 ? (cols[col('email')] ?? '') : '',
+      name: col('name') >= 0 ? cols[col('name')] || undefined : undefined,
+      extras,
     };
     if (row.company && row.email) rows.push(row);
   }
   return rows;
+}
+
+function buildAccountScoreJson(row: CsvImportRow): Record<string, unknown> | undefined {
+  const raw = { ...row.extras };
+  const segment = raw.segment;
+  if (segment) delete raw.segment;
+  const payload: Record<string, unknown> = {
+    pipeline: {
+      source: 'csv_import',
+      vertical: 'parametric_risk_markets',
+      imported_at: nowIso(),
+      raw,
+    },
+  };
+  if (Object.keys(raw).length === 0 && !segment) {
+    return undefined;
+  }
+  return payload;
+}
+
+function accountSegmentFromRow(row: CsvImportRow): string | undefined {
+  const s = row.extras.segment?.trim();
+  return s || undefined;
 }
 
 export function importCsvToSourcesAndProposals(
@@ -74,7 +112,11 @@ export function importCsvToSourcesAndProposals(
     sources.push(src);
 
     const ev = evidenceFromSource(src.id);
-    const acc = buildCreateAccountMutation(repo, row.company, row.domain, ev, autoApplyMutations);
+    const scoreJson = buildAccountScoreJson(row);
+    const acc = buildCreateAccountMutation(repo, row.company, row.domain, ev, autoApplyMutations, {
+      segment: accountSegmentFromRow(row),
+      score_json: scoreJson,
+    });
     mutationIds.push(acc.id);
     const contact = buildCreateContactMutation(repo, undefined, row.email, row.name, ev, autoApplyMutations);
     mutationIds.push(contact.id);

@@ -95,7 +95,13 @@ export class MutationApplyService {
   }
 
   private applyCreateAccount(m: CRMMutation, t: string): ApplyOutcome {
-    const p = m.proposed_payload as { id?: string; name: string; domain?: string; segment?: string };
+    const p = m.proposed_payload as {
+      id?: string;
+      name: string;
+      domain?: string;
+      segment?: string;
+      score_json?: Record<string, unknown>;
+    };
     const id = p.id ?? this.repo.newId();
     if (this.repo.getAccount(id)) {
       return this.finishNoop(m, 'account id exists');
@@ -105,6 +111,7 @@ export class MutationApplyService {
       name: p.name,
       domain: p.domain,
       segment: p.segment,
+      score_json: p.score_json,
       created_at: t,
       updated_at: t,
     };

@@ -67,12 +67,18 @@ export function buildCreateAccountMutation(
   name: string,
   domain: string | undefined,
   evidence: EvidenceRef[],
-  autoApply: boolean
+  autoApply: boolean,
+  opts?: { segment?: string; score_json?: Record<string, unknown> }
 ): CRMMutation {
   return proposeMutation(repo, {
     mutation_type: CRMMutationType.create_account,
     target_entity_type: EntityRefType.account,
-    proposed_payload: { name, domain },
+    proposed_payload: {
+      name,
+      domain,
+      ...(opts?.segment != null ? { segment: opts.segment } : {}),
+      ...(opts?.score_json != null ? { score_json: opts.score_json } : {}),
+    },
     confidence_score: 0.9,
     source_evidence: evidence,
     explanation: `Create account ${name}`,

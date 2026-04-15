@@ -1,0 +1,46 @@
+# Company pipeline CSV — parametric / prediction-market ICP
+
+## What the importer does
+
+`nightshift sales import-csv <file.csv>` reads **core** columns plus **any extra headers** you add. Extra columns are stored in SQLite on the **account** as:
+
+- **`segment`** — if you include a `segment` column, it maps to `accounts.segment` (and is removed from the metrics blob so it is not duplicated in JSON).
+- **`score_json.pipeline`** — structured as:
+  - `source`: `csv_import`
+  - `vertical`: `parametric_risk_markets`
+  - `imported_at`: ISO timestamp
+  - `raw`: key/value map of **every non-core column** except `segment` (strings).
+
+Core columns (fixed names, case-insensitive header row):
+
+| Column   | Required | Notes                          |
+|----------|----------|--------------------------------|
+| `company`| yes      | Account name                   |
+| `email`  | yes      | Primary contact email          |
+| `domain` | no       | Corporate domain               |
+| `name`   | no       | Contact full name              |
+
+All other headers become **pipeline metrics** in `score_json.pipeline.raw`. You can add new columns anytime without code changes.
+
+## Suggested fields for “mid-tier co-creation” (parametric insurance / alt risk)
+
+Use whatever you actually collect; names are yours. Examples that map well to **mid-market partners** (not giant captives, not tiny SMB):
+
+- **`segment`** — e.g. `mid_market_parametric_partner` to tag ICP in SQL and filters.
+- **`employee_band`**, **`revenue_usd_band`** — rough size (avoid precise numbers if privacy-sensitive).
+- **`industry`**, **`regulated`** — sector and regulatory load (0/1).
+- **`regions`** — geographies for peril / basis risk (semicolon-separated is fine).
+- **`captive_or_alt_risk`** — already use alternative risk financing (0/1).
+- **`parametric_maturity`** — none | exploring | pilot | scaling.
+- **`innovation_partner_fit`** — 0–1 score if you model it.
+- **`mid_market_focus`** — 1 if this account is explicitly in your target band.
+- **`notes`** — free text; stays in `raw` for search / LLM / later ETL.
+
+## Limitations
+
+- Simple comma-splitting: **do not put unescaped commas inside a field** unless you switch to TSV or a real CSV writer.
+- For very wide or nested data, prefer a future **JSON import** that writes the same `segment` + `score_json` shape.
+
+## Example file
+
+See `examples/companies_parametric_icp.sample.csv`.
