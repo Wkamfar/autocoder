@@ -2,6 +2,19 @@
 
 Use this after merging `integration/sales-v7` (or main once merged). **No code changes required** — only env, seed data, Discord app setup, and a one-time smoke test.
 
+## Product boundary: CRM vs Sales OS
+
+**One-line internal description:** The CRM is **SQLite-backed** and **seeded from imports**; the Sales OS is currently **world-file-backed** and **decision-centric**; **unification** is a **future step**, not today’s default.
+
+| Surface | Data | Discord / CLI |
+|--------|------|----------------|
+| **SQLite CRM** | `SALES_DB_PATH` | **Prefix** `!ns sales` (import-csv, apply-pending, …) and CLI `nightshift sales` — real accounts/contacts/mutations. |
+| **Slash Sales OS** | `SALES_WORLD_JSON` | `/sales`, `/debate`, `/top-decisions`, `/compare` — reads **`loadSalesWorld()`**, not the CRM DB by default. |
+
+Flow: **`SALES_WORLD_JSON` → slash commands → decision UX**. That is **parallel to**, not the same as, CSV → SQLite CRM (see canonical seed file in [`docs/agents/CRM_MARKETRY_DATASET.md`](./agents/CRM_MARKETRY_DATASET.md)).
+
+**Future opportunity:** CRM → world sync, or slash commands reading SQLite-backed deals/accounts — **not** required for rollout today.
+
 ## Prerequisites
 
 | Item | Notes |

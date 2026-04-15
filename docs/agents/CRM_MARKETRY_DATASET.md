@@ -6,6 +6,17 @@ Canonical **company-level** lead sheet for the sales CRM Builder: logistics, con
 
 This file exists so **agents and humans** merging `integration/sales-v7` know where real prospect data lives and how it is imported.
 
+## Product boundary: CRM vs Sales OS
+
+**One-line internal description:** The CRM is **SQLite-backed** and **seeded from imports**; the **Sales OS** (slash commands) is currently **world-file-backed** and **decision-centric**; **unification** (CRM ↔ world deals) is a **future integration step**, not today’s default.
+
+| Surface | Data | How you use it |
+|--------|------|----------------|
+| **SQLite CRM** | `SALES_DB_PATH` | CLI: `nightshift sales import-csv` → `apply-pending`. Discord **prefix**: `!ns sales import-csv`, `apply-pending`, `status`, … — same pipeline (sources → mutations → accounts/contacts). |
+| **Slash Sales OS** | `SALES_WORLD_JSON` / `loadSalesWorld()` | `/sales`, `/debate`, `/top-decisions`, `/compare` — deal-centric JSON, **not** the SQLite CRM unless you wire them together later. |
+
+So: **`marketry_chicago_targets.csv` → import-csv / apply-pending → SQLite CRM** is the real seeded account/contact system. Slash decision UX does **not** automatically consume this CSV; see [`docs/sales-os-rollout.md`](../sales-os-rollout.md).
+
 ## Files
 
 | Path | Description |
