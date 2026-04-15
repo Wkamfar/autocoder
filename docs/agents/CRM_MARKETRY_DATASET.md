@@ -17,7 +17,7 @@ This file exists so **agents and humans** merging `integration/sales-v7` know wh
 | **Slash Sales OS** | `SALES_WORLD_JSON` / `loadSalesWorld()` | `/sales`, `/debate`, `/top-decisions`, `/compare` — deal-centric JSON, **not** the SQLite CRM unless you wire them together later.                                                        |
 
 
-So: **`marketry_chicago_targets.csv` → import-csv / apply-pending → SQLite CRM** is the real seeded account/contact system. Slash decision UX does **not** automatically consume this CSV; see [`docs/sales-os-rollout.md`](../sales-os-rollout.md).
+So: **`marketry_chicago_targets.csv` → import-csv / apply-pending → SQLite CRM** is the real seeded account/contact system. Slash decision UX does **not** automatically consume this CSV; see [`docs/sales-os-rollout.md`](../sales-os-rollout.md). Planned alignment between CRM and slash Sales OS: [`docs/CRM_SALES_OS_UNIFICATION.md`](../CRM_SALES_OS_UNIFICATION.md).
 
 ## Files
 

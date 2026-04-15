@@ -278,7 +278,7 @@ the daemon registers **slash commands** (`/top-decisions`, `/debate`, `/compare`
 
 ## Documentation map
 
-New to the repo: start at **[`docs/ONBOARDING.md`](docs/ONBOARDING.md)** — links **README** → sales phases → **CRM** (SQLite + Marketry CSV) → **Sales OS** (world JSON + slash commands) → rollout, with a short **product boundary** (CRM vs decision layer). Same content is summarized here: the **daemon** lives in this README; **sales** details are split across [`docs/PR_SALES_PHASES_1_8.md`](docs/PR_SALES_PHASES_1_8.md), [`docs/agents/CRM_MARKETRY_DATASET.md`](docs/agents/CRM_MARKETRY_DATASET.md), [`docs/sales-os-rollout.md`](docs/sales-os-rollout.md), and the topic docs linked from onboarding.
+New to the repo: start at **[`docs/ONBOARDING.md`](docs/ONBOARDING.md)** — first-10-minutes path, **two-surface mental model**, common mistakes, diagram, and doc map. **CRM ↔ Sales OS unification** (future integration, not implemented): [`docs/CRM_SALES_OS_UNIFICATION.md`](docs/CRM_SALES_OS_UNIFICATION.md). The **daemon** overview stays in this README; **sales** detail is in [`docs/PR_SALES_PHASES_1_8.md`](docs/PR_SALES_PHASES_1_8.md), [`docs/agents/CRM_MARKETRY_DATASET.md`](docs/agents/CRM_MARKETRY_DATASET.md), [`docs/sales-os-rollout.md`](docs/sales-os-rollout.md), and onboarding links.
 
 ## Development
 

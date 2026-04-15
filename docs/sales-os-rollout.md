@@ -2,6 +2,8 @@
 
 Use this after merging `integration/sales-v7` (or main once merged). **No code changes required** — only env, seed data, Discord app setup, and a one-time smoke test.
 
+**CRM ↔ Sales OS convergence (design, not shipped):** [`CRM_SALES_OS_UNIFICATION.md`](./CRM_SALES_OS_UNIFICATION.md).
+
 ## Product boundary: CRM vs Sales OS
 
 **One-line internal description:** The CRM is **SQLite-backed** and **seeded from imports**; the Sales OS is currently **world-file-backed** and **decision-centric**; **unification** is a **future step**, not today’s default.
