@@ -109,7 +109,7 @@ Full list and comments: **`.env.example`**.
 
 ## Testing
 
-CI runs **`scripts/smoke-ci.sh`** on every PR (eval fixtures, `top-decisions` with `--all`, policy eval, CRM SQLite + CSV import). **`npm run rollout:check`** validates local `.env` + world without printing secrets. **Real-guild rollout:** `docs/sales-os-rollout.md` (golden path capture). Extended: `docs/discord-sales-os-smoke-checklist.md`.
+CI runs **`npm test`**, then **`scripts/smoke-ci.sh`** (JSON shape validation for the sample world, eval fixtures, `top-decisions` with `--all`, policy eval, CRM SQLite + CSV). **`npm run rollout:check`** validates snowflake ids and world shape. **Real-guild rollout:** `docs/sales-os-rollout.md`. Extended: `docs/discord-sales-os-smoke-checklist.md`.
 
 ```bash
 npm run build

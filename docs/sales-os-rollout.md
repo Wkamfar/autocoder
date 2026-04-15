@@ -20,7 +20,7 @@ cp .env.rollout.example .env
 npm run rollout:check
 ```
 
-`npm run rollout:check` verifies Discord vars and `state/sales-world.json` (or `SALES_WORLD_JSON`) **without printing secrets**. It exits 0 if `.env` is missing (not an error — you have not copied the template yet).
+`npm run rollout:check` verifies Discord vars (including **snowflake-shaped** guild/channel ids), that guild ≠ channel id when both are numeric, and that the world file **parses and matches the structural shape** expected by the engine — **without printing secrets**. It exits 0 if `.env` is missing (not an error — you have not copied the template yet).
 
 `.env.rollout.example` is the **known-good shape** for Sales OS + daemon (proactive moments default **off**). Do **not** commit a filled `.env`.
 
@@ -76,7 +76,7 @@ Set `DECISION_MOMENTS_ENABLED=1` and optionally `DISCORD_DECISION_CHANNEL_ID`. E
 
 ## CI (automated, no secrets)
 
-On **every pull request** (any branch) and on pushes to `main` / `develop` / `integration/sales-v7`, GitHub Actions runs `npm ci`, typecheck, build, and **`bash scripts/smoke-ci.sh`**: Pair Debate **eval fixture validation** (dossier scenarios), `top-decisions` with explicit `--world` + `--all` (stable under trigger tuning), `sales-action policy-eval`, throwaway **CRM SQLite** schema, and **CSV import** into the v7 repo path.
+On **every pull request** (any branch) and on pushes to `main` / `develop` / `integration/sales-v7`, GitHub Actions runs `npm ci`, typecheck, **`npm test`** (sample world/strategy JSON), build, **`bash scripts/smoke-ci.sh`** (world shape CLI check, eval fixtures, `top-decisions` with `--world` + `--all`, policy eval, CRM SQLite + CSV import). Failed smokes upload **`smoke.log`** as an artifact. **Dependabot** opens weekly npm update PRs (`.github/dependabot.yml`).
 
 Locally after a build:
 

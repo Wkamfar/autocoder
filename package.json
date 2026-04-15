@@ -15,10 +15,12 @@
     "daemon": "tsx src/index.ts daemon",
     "cli": "tsx src/index.ts cli",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/sales-world-shape.test.mjs",
     "clean": "rm -rf dist",
     "rollout:seed-world": "bash scripts/seed-sales-world.sh",
     "rollout:check": "node scripts/check-rollout-env.mjs",
-    "ci:smoke": "npm run build && bash scripts/smoke-ci.sh"
+    "ci:smoke": "npm run build && bash scripts/smoke-ci.sh",
+    "ci": "npm run typecheck && npm test && npm run build && bash scripts/smoke-ci.sh"
   },
   "engines": {
     "node": ">=22"

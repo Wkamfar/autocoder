@@ -11,6 +11,9 @@ mkdir -p "$STATE_DIR"
 WORLD="$ROOT/examples/sales-world.sample.json"
 test -f "$WORLD"
 
+echo "== sales world JSON shape (checked-in sample)"
+node "$ROOT/scripts/validate-sales-world-shape.mjs" "$WORLD"
+
 bash "$ROOT/scripts/seed-sales-world.sh"
 
 echo "== pair-debate-eval validate (dossier fixtures)"

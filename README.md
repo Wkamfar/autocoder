@@ -275,8 +275,10 @@ the daemon registers **slash commands** (`/top-decisions`, `/debate`, `/compare`
 
 ```bash
 npm run typecheck
+npm test                  # node:test — sample JSON shape + fixtures
 npm run ci:smoke          # build + offline smoke (eval fixtures, top-decisions, policy, CRM DB+CSV)
-npm run rollout:check     # after .env + seed: verify Discord + world (secrets not printed)
+npm run ci                # typecheck + test + build + smoke (matches CI job)
+npm run rollout:check     # after .env + seed: Discord snowflakes + world shape (secrets not printed)
 npm run dev daemon        # run with tsx, no build step
 ```
 
