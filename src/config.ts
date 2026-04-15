@@ -27,12 +27,19 @@ function list(key: string, fallback: string[] = []): string[] {
     .filter(Boolean);
 }
 
+const defaultStateDir = path.join(process.cwd(), 'state');
+
 export const config = {
   discord: {
     token: str('DISCORD_BOT_TOKEN'),
     channelId: str('DISCORD_CHANNEL_ID'),
+    /** If set, only this user may run `!ns sales` (recommended). */
     ownerId: str('DISCORD_OWNER_ID'),
     webhookUrl: str('DISCORD_WEBHOOK_URL'),
+    /** If set, `!ns sales` only works in this channel (use your sales channel id). */
+    salesChannelId: str('DISCORD_SALES_CHANNEL_ID'),
+    /** Require DISCORD_OWNER_ID to match for sales commands (default true). */
+    salesRequireOwner: bool('DISCORD_SALES_REQUIRE_OWNER', true),
   },
   project: {
     dir: str('PROJECT_DIR', process.cwd()),
@@ -93,8 +100,13 @@ export const config = {
   },
   runtime: {
     logLevel: str('LOG_LEVEL', 'info'),
-    stateDir: str('STATE_DIR', path.join(process.cwd(), 'state')),
+    stateDir: str('STATE_DIR', defaultStateDir),
     tickMs: num('COORDINATOR_TICK_MS', 10_000),
+  },
+  /** Sales mode — canonical CRM + CRM Builder (v7). */
+  sales: {
+    dbPath: str('SALES_DB_PATH', path.join(str('STATE_DIR', defaultStateDir), 'sales.db')),
+    staleFollowupDays: num('STALE_FOLLOWUP_DAYS', 7),
   },
 };
 
@@ -123,6 +135,11 @@ export function validateConfig(): string[] {
   }
   if (config.engines.disableCodex && config.engines.disableLocal && config.engines.disableCursor) {
     // Not fatal — claude alone works — but worth warning about.
+  }
+  if (config.discord.salesRequireOwner && !config.discord.ownerId) {
+    errors.push(
+      'DISCORD_SALES_REQUIRE_OWNER is true but DISCORD_OWNER_ID is empty — anyone who can post in the sales channel can run !ns sales. Set DISCORD_OWNER_ID or set DISCORD_SALES_REQUIRE_OWNER=0.'
+    );
   }
   return errors;
 }

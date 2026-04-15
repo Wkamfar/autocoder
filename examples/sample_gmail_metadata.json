@@ -1,0 +1,11 @@
+{
+  "messages": [
+    {
+      "id": "msg_001",
+      "threadId": "thr_1",
+      "from": "jane@acme.com",
+      "to": "founder@company.com",
+      "subject": "Quick question"
+    }
+  ]
+}

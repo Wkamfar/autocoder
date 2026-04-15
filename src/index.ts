@@ -55,6 +55,12 @@ async function main(): Promise<void> {
     process.exit(report.fatal ? 1 : 0);
   }
 
+  if (mode === 'sales') {
+    const { runSalesCli } = await import('./sales/cli.js');
+    await runSalesCli(rest);
+    process.exit(0);
+  }
+
   await daemon.init();
 
   if (!mode || mode === 'daemon') {

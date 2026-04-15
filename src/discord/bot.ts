@@ -10,6 +10,7 @@ import { NightShiftDaemon } from '../daemon.js';
 import { Logger } from '../utils/logger.js';
 import { ComparisonReport, RunState, Task, TaskResult } from '../types.js';
 import { COMMAND_HELP, handleCommand } from './commands.js';
+import { handleSalesCommand, SALES_COMMAND_HELP } from './salesCommands.js';
 
 export class ClawBot {
   private client: Client;
@@ -60,10 +61,17 @@ export class ClawBot {
     const parts = msg.content.trim().split(/\s+/);
     const [, cmd, ...rest] = parts;
     if (!cmd) {
-      await msg.reply('```\n' + COMMAND_HELP + '\n```');
+      await msg.reply('```\n' + COMMAND_HELP + '\n\n' + SALES_COMMAND_HELP + '\n```');
       return;
     }
     try {
+      if (cmd === 'sales') {
+        const sub = rest[0] ?? 'help';
+        const subArgs = rest.slice(1).join(' ');
+        const reply = await handleSalesCommand(msg, sub, subArgs);
+        if (reply) await msg.reply(reply.length > 1900 ? reply.slice(0, 1900) + '…' : reply);
+        return;
+      }
       const reply = await handleCommand(this.daemon, cmd, rest.join(' '));
       if (reply) await msg.reply(reply.length > 1900 ? reply.slice(0, 1900) + '…' : reply);
     } catch (err) {

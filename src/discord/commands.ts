@@ -26,6 +26,7 @@ export const COMMAND_HELP = `NightShift commands:
   !ns fallback                 show model fallback / cooldown state
   !ns doctor                   pre-flight check (env, binaries, repos)
   !ns link-brain               wire the OpenClaw brain git remote and verify fetch
+  !ns sales help               CRM + mutations + sales actions (see full list)
   !ns help                     show this`;
 
 export async function handleCommand(
