@@ -17,7 +17,10 @@ Use this after merging `integration/sales-v7` (or main once merged). **No code c
 ```bash
 cp .env.rollout.example .env
 # Edit .env: set DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, DISCORD_CHANNEL_ID (and engines as needed).
+npm run rollout:check
 ```
+
+`npm run rollout:check` verifies Discord vars and `state/sales-world.json` (or `SALES_WORLD_JSON`) **without printing secrets**. It exits 0 if `.env` is missing (not an error — you have not copied the template yet).
 
 `.env.rollout.example` is the **known-good shape** for Sales OS + daemon (proactive moments default **off**). Do **not** commit a filled `.env`.
 
@@ -73,7 +76,7 @@ Set `DECISION_MOMENTS_ENABLED=1` and optionally `DISCORD_DECISION_CHANNEL_ID`. E
 
 ## CI (automated, no secrets)
 
-On push/PR to `main`, `develop`, or `integration/sales-v7`, GitHub Actions runs `npm ci`, typecheck, build, and **`bash scripts/smoke-ci.sh`**: seeds the sample world, runs `top-decisions` (JSON validation), `sales-action policy-eval` on samples, and opens a throwaway CRM SQLite DB to verify schema.
+On **every pull request** (any branch) and on pushes to `main` / `develop` / `integration/sales-v7`, GitHub Actions runs `npm ci`, typecheck, build, and **`bash scripts/smoke-ci.sh`**: Pair Debate **eval fixture validation** (dossier scenarios), `top-decisions` with explicit `--world` + `--all` (stable under trigger tuning), `sales-action policy-eval`, throwaway **CRM SQLite** schema, and **CSV import** into the v7 repo path.
 
 Locally after a build:
 

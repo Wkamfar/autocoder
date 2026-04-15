@@ -275,8 +275,14 @@ the daemon registers **slash commands** (`/top-decisions`, `/debate`, `/compare`
 
 ```bash
 npm run typecheck
-npm run ci:smoke          # build + offline sales stack smoke (decision rank, policy eval, CRM DB)
+npm run ci:smoke          # build + offline smoke (eval fixtures, top-decisions, policy, CRM DB+CSV)
+npm run rollout:check     # after .env + seed: verify Discord + world (secrets not printed)
 npm run dev daemon        # run with tsx, no build step
 ```
 
-CI (GitHub Actions) runs typecheck, build, and `scripts/smoke-ci.sh` on the branches listed in `.github/workflows/ci.yml`.
+CI (GitHub Actions) runs typecheck, build, and `scripts/smoke-ci.sh` on every PR and on pushes to `main`, `develop`, and `integration/sales-v7` (see `.github/workflows/ci.yml`).
+</think>
+
+
+<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
+Shell

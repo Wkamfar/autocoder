@@ -4,7 +4,10 @@ on:
   push:
     branches: [main, develop, integration/sales-v7]
   pull_request:
-    branches: [main, develop, integration/sales-v7]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-smoke:
@@ -26,5 +29,5 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Sales stack smoke (no API keys)
+      - name: Offline sales stack smoke
         run: bash scripts/smoke-ci.sh

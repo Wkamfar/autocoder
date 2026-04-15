@@ -17,6 +17,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf dist",
     "rollout:seed-world": "bash scripts/seed-sales-world.sh",
+    "rollout:check": "node scripts/check-rollout-env.mjs",
     "ci:smoke": "npm run build && bash scripts/smoke-ci.sh"
   },
   "engines": {

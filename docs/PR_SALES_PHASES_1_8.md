@@ -109,7 +109,7 @@ Full list and comments: **`.env.example`**.
 
 ## Testing
 
-Smoke-tested locally via CLI flows; **real-guild rollout** is documented in **`docs/sales-os-rollout.md`** (env freeze via `.env.rollout.example`, `npm run rollout:seed-world`, minimum smoke, golden path capture). Extended checks: `docs/discord-sales-os-smoke-checklist.md`.
+CI runs **`scripts/smoke-ci.sh`** on every PR (eval fixtures, `top-decisions` with `--all`, policy eval, CRM SQLite + CSV import). **`npm run rollout:check`** validates local `.env` + world without printing secrets. **Real-guild rollout:** `docs/sales-os-rollout.md` (golden path capture). Extended: `docs/discord-sales-os-smoke-checklist.md`.
 
 ```bash
 npm run build
