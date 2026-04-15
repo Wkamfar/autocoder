@@ -1,0 +1,13 @@
+{
+  "objectives": [
+    {
+      "id": "api-layer",
+      "title": "Build the HedgeGuard market data API layer",
+      "description": "Implement Polymarket and Kalshi integrations with tests, error handling, and rate limiting.",
+      "priority": 1,
+      "max_runtime_minutes": 480,
+      "max_cost_usd": 20,
+      "tags": ["backend", "api", "market-data"]
+    }
+  ]
+}

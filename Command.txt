@@ -1,0 +1,415 @@
+Overnight autonomous run — prompt design
+
+ Context
+
+ Improvements 1 (live WS/SSE pipeline) and 2 (strategy builder) just shipped and are deployed to the 159.65.201.166
+ droplet. The user wants to run Claude Code autonomously overnight to "attempt a bunch of changes" while they sleep.
+ This plan designs the prompt they will paste — not the changes themselves. The goal is a single, pasteable master
+ prompt that walks Claude through a priority-ordered list of safe, high-value tasks, with per-task abort conditions, a
+ strict do-not-touch list, and a central status report so the morning review is fast.
+
+ The overnight run is not a code change to the repo. It's a prompt specification. The only file this plan authorizes
+ editing is this plan file itself. Actual execution happens when the user pastes the master prompt into a fresh Claude
+ Code session.
+
+ ---
+ Design goals
+
+ 1. Reversibility above all. Every attempt lives on its own feature branch (nightshift/<task-slug>). Nothing is pushed
+ to origin, nothing is deployed, nothing touches prod state. Morning review is git branch --list 'nightshift/*'.
+ 2. Fail-closed per task. If npm run verify doesn't go green twice in a row, the task is aborted, the branch is left
+ alone for review, and the runner moves on. No retry loops chewing context.
+ 3. Hard do-not-touch list. Real-capital paths are named explicitly in the prompt. The list is derived from the survey:
+  backend/src/routes/auth.ts, backend/src/routes/wallet.ts, backend/src/routes/integrations.ts,
+ backend/src/routes/webhooks.ts, backend/src/live/usdcMonitor.ts, backend/src/live/liveConfig.ts,
+ backend/src/integrationsStore.ts, backend/src/lib/hdWallet.ts, the /orders/submit handler inside
+ backend/src/routes/desk.ts, deploy/**, and .secrets/**.
+ 4. Each task is self-contained. No task depends on another task's output. The runner can skip, reorder, or abort any
+ task without leaving the tree in a half-finished state.
+ 5. Every task commits a report. The task prompt ends with "write .nightshift/reports/<task-slug>.md with outcome, diff
+  summary, and any follow-up the user should know about." That folder is gitignored so the reports don't pollute
+ branches.
+ 6. Max session budget. The master prompt sets a 6-hour wall clock. If the runner is still working at that mark, it
+ stops taking new tasks and writes the final summary.
+
+ ---
+ Objective list (Tier 1 — the overnight run)
+
+ These are picked for high value, genuinely independent, verifiable without a browser, and no external API dependency.
+ Each has a named branch and an acceptance bar written into the master prompt.
+
+ 1. nightshift/unit-tests-vitest — Stand up a test suite
+
+ Why: CLAUDE.md:47 says "There are no tests in this repository." Zero coverage for load-bearing pure functions like
+ sizeContracts (fractional Kelly), computeSidePrice, pnlBps, the mergeSnapshot preference rules, computeLiveChangeBps
+ 24h-window math, and the validateRule shape check on the strategies route. A unit suite is the single highest-leverage
+  overnight task — zero external deps, pure functions, pure Node.
+ Scope:
+ - Add vitest as a root and backend dev dep (already allowed — prompt grants this specific add).
+ - Wire npm test in both package.json files and add a test step to the CI workflow at .github/workflows/ci.yml.
+ - Write tests for: backend/src/strategies/strategyEngine.ts (sizing, entryTriggered, computeSidePrice, pnlBps,
+ unrealizedPnlUsd, matchesFilters), backend/src/markets/live/liveSnapshotMerge.ts,
+ backend/src/markets/deskListMapper.ts (computeLiveChangeBps with boundary cases), backend/src/routes/strategies.ts
+ (validateRule via direct import if extractable, otherwise via a thin supertest harness).
+ - Hit >=25 test cases total. Quality > quantity, but the target keeps the task from trivially satisfying "one passing
+ test."
+ Acceptance: npm run verify green. npm test --prefix backend green with ≥25 cases. CI workflow updated and
+ actionlint-clean.
+
+ 2. nightshift/strategy-backtest — Replay engine over price_snapshots
+
+ Why: price_snapshots already persists 7 days of history (backend/src/markets/live/liveSnapshotsDb.ts:17-35) and
+ strategyEngine.evaluateTickForTest is already exported (backend/src/strategies/strategyEngine.ts:222-225). The gap
+ between "paper trading live" and "what would this strategy have done last week" is small — just a query + replay
+ driver + a route. No new model, no new schema.
+ Scope:
+ - New file backend/src/strategies/backtest.ts that: takes a StrategyRule, loads price_snapshots WHERE ts_ms >= ? ORDER
+  BY ts_ms ASC, synthesizes SnapshotEvent objects, feeds them through a local copy of the entry/exit logic (NOT the
+ shared mutable stats) — keep runtime stats isolated so backtest doesn't pollute live metrics — and returns { trades,
+ equityCurve, maxDrawdownPct, winRate, totalPnlUsd }.
+ - New read-only route POST /api/desk/strategies/backtest (not /:id — a synthetic rule passed in the body, so users can
+  preview without saving). Role-gated deskRoles.
+ - New tab in StrategiesPage.tsx "Backtest this rule" that reuses the existing form state and renders a minimal
+ equity-curve (no chart lib — ASCII-ish sparkline via inline SVG, like PriceChart.tsx probably does).
+ Acceptance: verify green, hitting the route with a fixture rule returns a deterministic response, and the UI tab
+ renders without errors.
+ Critical: do not modify strategyEngine.ts runtime stats path. Isolate the replay logic or extract shared pure helpers
+ (sizeContracts, entryTriggered, computeSidePrice, pnlBps) into backend/src/strategies/rules.ts first, then consume
+ them from both places.
+
+ 3. nightshift/mirror-drift-check — Guard the src/ ↔ backend/src/ invariant
+
+ Why: CLAUDE.md:57-71 documents the mirrored-module pattern as load-bearing but there is no enforcement. The survey
+ found an existing drift — src/markets/institutionalPolymarketSlugMap.ts exists in frontend with no backend counterpart
+  and no imports anywhere, so it's both drift and dead code. A scripted check closes this gap and sweeps the dead file.
+ Scope:
+ - New file scripts/check-mirror.mjs. Walks src/markets/*.ts and backend/src/markets/*.ts, reports files present on one
+  side only, and for shared files runs a coarse AST diff (or just a normalized-whitespace string diff) flagging any
+ divergence beyond an allowlist of known-backend-only files (live/, marketOverrideStore.ts, etc.).
+ - Wire the check as npm run check:mirror and add it to the root verify script after typecheck.
+ - Delete src/markets/institutionalPolymarketSlugMap.ts after confirming zero imports via grep.
+ Acceptance: npm run verify green (including the new step), and the script exits non-zero when a synthetic drift is
+ introduced in a scratch test.
+
+ 4. nightshift/strategy-metrics — Per-strategy performance endpoint + card
+
+ Why: The StrategiesPage currently shows raw counts (open/closed/realized). Traders want rolled-up metrics. This is
+ pure SQL over the existing paper_orders table — zero new schema, zero new behavior.
+ Scope:
+ - Extend backend/src/db/strategiesDb.ts with getStrategyMetrics(strategyId) that returns { totalTrades, closedTrades,
+ winRate, avgPnlUsd, avgHoldSeconds, realizedPnlUsd, bestTradeUsd, worstTradeUsd, equityCurve: Array<{ ts,
+ cumulativePnl }> }.
+ - Add route GET /api/desk/strategies/:id/metrics.
+ - Render a compact metric row under each strategy card in StrategiesPage.tsx, behind a "View metrics" expander so the
+ default list stays terse.
+ Acceptance: verify green, endpoint returns a well-shaped object for a seed strategy, expander renders without layout
+ shift.
+
+ 5. nightshift/market-detail-sse — Retire the 5s poll on MarketPage.tsx
+
+ Why: Imp 1 explicitly punted detail-view streaming. src/features/arc-market/pages/MarketPage.tsx:7 still hardcodes
+ LIVE_POLL_MS = 5_000 and ticks window.setInterval every 5s — per-user load scales linearly. Now that the SSE transport
+  is live, extending the payload is a small, contained win.
+ Scope:
+ - Extend the SSE payload on /api/desk/live-prices with an optional priceHistory + compact orderBook block, gated by a
+ query param ?detail=<slug> so list consumers (HomePage, LiveTickerStrip) don't pay the extra bytes.
+ - New hook useLiveMarketDetail(slug) that piggybacks on the singleton SSE subscription from src/api.ts.
+ - MarketPage.tsx consumes the hook; the 5s setInterval is removed; a slower fallback poll at 60s stays for staleness
+ healing.
+ - Feature-flag via VITE_LIVE_DETAIL_SSE_ENABLED so the old path is one env var away.
+ Acceptance: verify green, MarketPage renders in dev without the interval, SSE path is covered by a unit test added in
+ task #1 (payload-shape test).
+ Risk: this is the only Tier 1 task that touches the SSE transport. If it lands late and breaks the ticker, the ticker
+ regressed. Abort rule: if npm run verify fails on this task, also re-run it from a clean checkout and confirm main is
+ still green before moving on.
+
+ ---
+ Post-Tier-1 step — consolidated droplet deploy
+
+ After all five Tier 1 tasks have been attempted (any outcome), the runner performs a single deploy to 159.65.201.166.
+ The morning user sees one consolidated droplet state, not five sequential deploys. This is the only network-touching
+ step in the run.
+
+ Branch consolidation (nightshift/bundle):
+ 1. git checkout main in the main working tree (do NOT touch the per-task worktrees).
+ 2. Create a fresh branch git checkout -b nightshift/bundle-<yyyymmdd>.
+ 3. Merge only Tier 1 tasks whose report says outcome: done and whose verify was green at commit time. Use git merge
+ --no-ff nightshift/<task> per task. Skip any partial or failed tasks — leave those branches alone for morning review.
+ 4. After each merge, run npm run verify from the bundle branch. If it fails, git merge --abort, note the
+ conflict/regression in the bundle report, and continue with the next task. The bundle ships with whatever survived.
+ 5. If zero tasks merge cleanly, abort the deploy step entirely. The bundle branch is deleted. The per-task branches
+ are still there for morning review.
+
+ Deploy to droplet:
+ 1. git bundle create /tmp/nightshift-bundle-<yyyymmdd>.bundle main..HEAD on the bundle branch.
+ 2. scp the bundle to root@159.65.201.166:/tmp/.
+ 3. Over ssh: cd /opt/arc && git stash -u -m "pre-nightshift $(date +%s)", git fetch /tmp/<bundle>
+ HEAD:incoming-nightshift, git merge --ff-only incoming-nightshift, then bash deploy/redeploy.sh.
+ 4. Smoke-check the post-deploy state: systemctl status arcmarket, curl -s http://127.0.0.1:3333/health, curl -s
+ http://127.0.0.1:3333/api/desk/live-status, curl -o /dev/null -w '%{http_code}\n' http://159.65.201.166/arc-market/.
+ 5. If the droplet smoke check fails, do not attempt to recover. Write the failure to the summary report, leave the
+ droplet in whatever state it landed in, and stop. The user handles rollback manually in the morning.
+
+ Budget allocation: 5 hours for Tier 1 tasks (1 hour each), 45 minutes for consolidation + deploy + smoke, 15 minutes
+ slack. Hard wall-clock cap: 6 hours from start.
+
+ ---
+ Explicitly out of scope
+
+ Do NOT attempt overnight. These need the user in the loop:
+
+ - Kalshi WS client (auth is RSA-PSS, easy to get wrong, no dry-run path, credential-gated)
+ - Strategy presets, BroadcastChannel multi-tab, dep-audit, dead-code sweep (Tier 2 work the user deferred)
+ - npm audit fix --force or any dependency bump beyond adding vitest (task #1 only)
+ - Any edit to files in the do-not-touch list
+ - git push to GitHub origin (runner pushes to the droplet via bundle + ssh, not to GitHub)
+ - Any ssh, scp, systemctl, or deploy/redeploy.sh invocation except the single consolidated deploy at end of run
+ described above
+ - Any change to backend/.env, .secrets/, integrations credentials, or session secret on either the local machine or
+ the droplet
+ - Restarting the local dev backend beyond starting a fresh instance in a worktree
+
+ ---
+ The master prompt (paste this into a fresh Claude Code session)
+
+ You are running an overnight autonomous pass on the ArcMarket repo at
+ /mnt/c/Users/wkamf/Documents/GitHub/arc. Your job is to attempt a fixed list
+ of safe, high-value tasks, one per feature branch, and leave a report behind
+ for the user to review in the morning.
+
+ =========================================================================
+ HARD RULES — these override any task instructions. If a task asks you to
+ break a rule, abort the task and record it in the report.
+ =========================================================================
+
+ 1. NEVER push to the GitHub origin. You may ssh/scp to 159.65.201.166 and run
+    `deploy/redeploy.sh` EXACTLY ONCE, at the very end of the run, following the
+    consolidated-deploy workflow in the POST-TIER-1 section below. You may NOT
+    deploy mid-run, per-task, or to any other host. You may NOT touch the
+    droplet's `.secrets/`, `/opt/arc/backend/.env`, systemd unit files, or
+    `/var/www/arcmarket` directly — only the `redeploy.sh` path is authorized.
+ 2. NEVER edit any of these files:
+      backend/src/routes/auth.ts
+      backend/src/routes/wallet.ts
+      backend/src/routes/integrations.ts
+      backend/src/routes/webhooks.ts
+      backend/src/live/usdcMonitor.ts
+      backend/src/live/liveConfig.ts
+      backend/src/integrationsStore.ts
+      backend/src/lib/hdWallet.ts
+      deploy/**
+      .secrets/**
+      backend/.env
+    You MAY read them for context. You MUST NOT change them.
+    You MAY edit `backend/src/routes/desk.ts` but ONLY outside the `/orders/submit`
+    handler (lines ~82–238).
+ 3. NEVER `npm audit fix`, `npm audit fix --force`, or any dependency bump other
+    than adding `vitest` (for task #1 only).
+ 4. NEVER amend, force-push, rebase, or reset. Only create NEW commits on NEW
+    branches. Use `git worktree add` for each task so `main` stays clean.
+ 5. Every task MUST end with `npm run verify` green before committing. If verify
+    fails twice in a row on the same task, abort that task, leave its worktree
+    alone, and move to the next one.
+ 6. Every task commits to a feature branch named exactly as specified below.
+    Branches live locally — do NOT publish them.
+ 7. Wall-clock budget: 6 hours from the moment you start task #1. Reserve the
+    final 45 minutes for the consolidated-deploy step — if you are still in
+    tasks at the 5h15m mark, stop taking new tasks, write the partial summary,
+    and proceed to deploy whatever survived. Hard cap at 6h: if you are still
+    deploying at 6h, abort the deploy (leave the droplet alone), write the
+    summary, stop.
+
+ =========================================================================
+ WORKFLOW per task
+ =========================================================================
+
+ For each task in the priority list:
+
+   a. Create a fresh worktree: `git worktree add ../arc-nightshift-<slug> -b nightshift/<slug>`
+   b. cd into the worktree.
+   c. Read the task brief carefully. Do the exploration you need.
+   d. Implement. Prefer editing existing files. Follow CLAUDE.md conventions.
+      Keep the diff scoped — this is a focused task, not a refactor.
+   e. Run `npm run verify`. If it fails, fix the failure and re-run once.
+      If it fails a second time, STOP. Write a failure report. Move on.
+   f. Commit: one clean commit, clear message, co-authored by Claude.
+      Do not push.
+   g. Write `.nightshift/reports/<slug>.md` in the MAIN working tree (not the
+      worktree) with: outcome (done|partial|failed), files changed, LOC delta,
+      verify output tail, and any follow-up the user should know about.
+   h. `git worktree remove` the worktree only if it was pristine (no commits).
+      Otherwise leave it for the user to review.
+
+ Between tasks, return to /mnt/c/Users/wkamf/Documents/GitHub/arc and confirm
+ main is still untouched before starting the next task.
+
+ =========================================================================
+ TASK LIST (priority order — do them in this order, skip any that you judge
+ are already done from a prior run)
+ =========================================================================
+
+ Attempt all five Tier 1 tasks. Do NOT attempt any Tier 2 or Tier 3 tasks —
+ the user explicitly scoped the run to Tier 1 only. If you finish Tier 1 early,
+ spend the remaining budget on sharpening what you shipped (more tests on the
+ engine, tightening the backtest replay determinism, etc.) rather than opening
+ new branches.
+
+ TIER 1 — attempt all five:
+
+   1. nightshift/unit-tests-vitest
+      Add vitest to root and backend. Wire `npm test` in both package.json
+      files and add a test step to .github/workflows/ci.yml. Write ≥25 unit
+      tests covering: strategyEngine.ts helpers (sizeContracts with all three
+      sizing kinds, entryTriggered, computeSidePrice, pnlBps, unrealizedPnlUsd,
+      matchesFilters), liveSnapshotMerge.ts source-preference rules,
+      deskListMapper.computeLiveChangeBps with boundary cases, and
+      routes/strategies.ts validateRule shape checks. Quality counts — no
+      tautological tests. Acceptance: verify green, `npm test --prefix backend`
+      green.
+
+   2. nightshift/strategy-backtest
+      First: extract pure helpers (sizeContracts, entryTriggered, computeSidePrice,
+      pnlBps) from strategyEngine.ts into backend/src/strategies/rules.ts and
+      have strategyEngine.ts import from there. DO NOT change runtime behavior.
+      Then: new file backend/src/strategies/backtest.ts that loads
+      price_snapshots WHERE ts_ms >= ? ORDER BY ts_ms ASC, synthesizes
+      SnapshotEvent objects, runs them through a LOCAL replay loop (no shared
+      mutable stats), and returns { trades, equityCurve, maxDrawdownPct, winRate,
+      totalPnlUsd }. Wire POST /api/desk/strategies/backtest (body: a full
+      StrategyRule + optional sinceMs). Add a "Backtest this rule" button on
+      StrategiesPage that reuses the form state and renders the equity curve as
+      an inline SVG sparkline (no new chart lib). Acceptance: verify green, a
+      smoke curl against the route returns well-shaped JSON.
+
+   3. nightshift/mirror-drift-check
+      Write scripts/check-mirror.mjs that walks src/markets/*.ts and
+      backend/src/markets/*.ts, reports one-sided files, and flags divergent
+      shared files. Allowlist backend-only dirs (live/, marketOverrideStore.ts,
+      etc.). Wire as `npm run check:mirror` and add it to the root verify
+      script AFTER typecheck. Delete src/markets/institutionalPolymarketSlugMap.ts
+      after confirming zero imports with grep. Acceptance: verify green including
+      the new step. Bonus: include a smoke case where an intentional drift
+      triggers a non-zero exit, then revert.
+
+   4. nightshift/strategy-metrics
+      Extend backend/src/db/strategiesDb.ts with getStrategyMetrics(strategyId)
+      that returns { totalTrades, closedTrades, winRate, avgPnlUsd, avgHoldSeconds,
+      realizedPnlUsd, bestTradeUsd, worstTradeUsd, equityCurve }. Add route
+      GET /api/desk/strategies/:id/metrics. Render a compact metric row under
+      each strategy card in StrategiesPage behind a "View metrics" expander.
+      Acceptance: verify green, route returns sane numbers for a seeded row.
+
+   5. nightshift/market-detail-sse
+      Extend /api/desk/live-prices SSE payload with optional priceHistory +
+      compact orderBook, gated on a `?detail=<slug>` query param. Add a hook
+      useLiveMarketDetail(slug) that piggybacks on the singleton EventSource
+      in src/api.ts. MarketPage.tsx consumes the hook; the 5s setInterval is
+      removed; a 60s fallback poll stays. Feature-flag behind
+      VITE_LIVE_DETAIL_SSE_ENABLED (default on in dev, off in prod until
+      validated). Acceptance: verify green, dev backend renders MarketPage
+      without the old interval, LiveTickerStrip still ticks unchanged.
+
+ =========================================================================
+ POST-TIER-1 CONSOLIDATED DEPLOY (do this exactly once, after task #5)
+ =========================================================================
+
+ When all five Tier 1 tasks have been attempted, deploy the green ones to
+ the droplet at 159.65.201.166 in a single consolidated push. The morning
+ user should see one post-deploy state, not five sequential redeploys.
+
+   a. Return to the main working tree: cd /mnt/c/Users/wkamf/Documents/GitHub/arc
+   b. Confirm main is clean: `git status` → nothing staged, nothing modified.
+   c. Create the bundle branch: `git checkout -b nightshift/bundle-<yyyymmdd>`
+   d. For each Tier 1 task IN ORDER (1 → 5), if and only if its per-task
+      report says outcome=done AND its commit ran verify green:
+        git merge --no-ff nightshift/<task>
+        npm run verify
+      If verify fails after a merge, `git merge --abort` the last merge,
+      record the regression in the summary, and continue with the next task.
+      Bundle whatever survives.
+   e. If zero tasks merged cleanly, DELETE the bundle branch
+      (`git branch -D nightshift/bundle-<yyyymmdd>`) and skip the rest of
+      this section. No deploy happens. Write the summary and stop.
+   f. Bundle the commits: `git bundle create /tmp/nightshift-bundle-<yyyymmdd>.bundle main..HEAD`
+   g. Scp to droplet: `scp /tmp/nightshift-bundle-<yyyymmdd>.bundle root@159.65.201.166:/tmp/`
+   h. Over ssh, in one command chain:
+        cd /opt/arc
+        git stash -u -m "pre-nightshift $(date +%s)" || true
+        git fetch /tmp/nightshift-bundle-<yyyymmdd>.bundle HEAD:incoming-nightshift
+        git merge --ff-only incoming-nightshift
+        bash deploy/redeploy.sh
+   i. Smoke check (over ssh):
+        systemctl status arcmarket --no-pager | head -12
+        curl -s http://127.0.0.1:3333/health
+        curl -s http://127.0.0.1:3333/api/desk/live-status | head -c 500
+      And from WSL:
+        curl -s -o /dev/null -w '%{http_code}\n' http://159.65.201.166/arc-market/
+   j. If any smoke check fails, STOP. Write the failure to the summary with
+      full error output. Do NOT attempt to roll back — the user handles that
+      in the morning. Do NOT retry the deploy.
+
+ =========================================================================
+ FINAL REPORT
+ =========================================================================
+
+ When you are done (either all tasks + deploy attempted, or the 6-hour budget
+ hit), write `.nightshift/reports/_summary.md` in the MAIN tree. Include:
+
+   - Start time, end time, total elapsed.
+   - Per-task: branch name, outcome (done|partial|failed|skipped), one-line
+     summary, link to the per-task report.
+   - Consolidated deploy section: which tasks made it into the bundle, the
+     merge order, the verify status after each merge, the droplet smoke
+     check results, and the commit hash now running on the droplet.
+   - A "user follow-ups" section flagging anything that needs human eyes —
+     for example, if the mirror check surfaced unexpected drift, if a verify
+     failure looked like a real bug in existing code rather than your change,
+     if a task was dropped from the bundle due to merge conflicts, or if the
+     droplet smoke check was anything other than fully green.
+
+ Then stop. Do not continue. Do not open the morning's work. Do not attempt
+ any Tier 2 work even if you have time left.
+
+ Go.
+
+ ---
+ Critical files (referenced by the tasks above)
+
+ - CLAUDE.md — conventions, mirrored-module rule, do-not-touch envelope
+ - backend/src/strategies/strategyEngine.ts — source of pure helpers to extract
+ - backend/src/markets/live/liveSnapshotsDb.ts:61-78 — getLatestSnapshotPerSlug, countSnapshotsSince (reuse pattern for
+  backtest query)
+ - backend/src/routes/strategies.ts — validateRule (needs a test-friendly extraction)
+ - backend/src/markets/live/liveSnapshotMerge.ts — source-preference rules, test target
+ - backend/src/markets/deskListMapper.ts — computeLiveChangeBps 24h-window math
+ - src/features/arc-market/pages/MarketPage.tsx:7,51 — 5s poll to retire
+ - src/api.ts:1204-1307 — singleton EventSource, the hook for detail SSE to piggyback on
+ - backend/src/routes/liveStream.ts — SSE route to extend with ?detail= query
+ - .github/workflows/ci.yml:28-29 — verify job, gets a new npm test step
+ - src/markets/institutionalPolymarketSlugMap.ts — confirmed dead, to delete in task #3
+
+ ---
+ Verification of the plan itself
+
+ Before the user kicks off the overnight run, they should:
+
+ 1. Confirm the do-not-touch list matches their mental model (especially: desk.ts is editable except /orders/submit).
+ 2. Confirmed decisions from this planning session:
+   - Wall-clock: 6 hours, Tier 1 only (5 tasks).
+   - Test framework: vitest, added to both packages.
+   - Deploy: one consolidated deploy at end of run via git bundle → scp → redeploy.sh (same path as the manual deploy
+ earlier today).
+ 3. Optionally pre-create .nightshift/reports/ and add .nightshift/ to .gitignore if the reports should not land in
+ git.
+ 4. Optionally confirm ssh-agent is unlocked / key-authed for root@159.65.201.166 before starting, since the end-of-run
+  deploy is non-interactive.
+
+ Morning review flow:
+ 1. Read .nightshift/reports/_summary.md for the high-level outcome.
+ 2. Load http://159.65.201.166/arc-market/ and click through Strategies, Markets, and the new Backtest tab — the
+ droplet is running whatever bundle shipped.
+ 3. git branch --list 'nightshift/*' + git worktree list for branches that didn't make it into the bundle. git switch
+ nightshift/<task> + git diff main to review per-task.
+ 4. If the deployed state is wrong: ssh root@159.65.201.166 'cd /opt/arc && git reset --hard 2563f74 && bash
+ deploy/redeploy.sh' rolls back to the pre-Imp1/Imp2 commit. A faster rollback target is the commit the morning user
+ committed today (1ca8742), which they can confirm via git log --oneline -5 on the droplet.
