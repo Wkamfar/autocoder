@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { parse } from 'csv-parse/sync';
 import type { CRMEntitySource } from '../types/entities.js';
 import {
   CRMEntitySourceType,
@@ -28,6 +29,14 @@ import {
 
 const CORE_HEADERS = new Set(['company', 'domain', 'email', 'name']);
 
+function extrasScore01(extras: Record<string, string>, key: string): number | undefined {
+  const raw = extras[key]?.trim();
+  if (!raw) return undefined;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return undefined;
+  return Math.min(1, Math.max(0, n / 10));
+}
+
 export interface CsvImportRow {
   company: string;
   domain?: string;
@@ -38,36 +47,58 @@ export interface CsvImportRow {
 }
 
 /**
- * CSV: required columns `company`, `email`. Optional: `domain`, `name`.
- * Any **additional** headers are stored in `extras` and, on apply, merged into
- * `accounts.score_json` under `pipeline.raw` plus optional `segment` from a `segment` column.
- *
- * Avoid commas inside fields unless you use a proper CSV exporter; tabs are OK in values if you don't split on tab.
+ * CSV: required `company`. **`email` or `domain`** — if `email` is missing, we use `unknown@<domain>`.
+ * Optional: `name`. RFC 4180 quoted fields (commas inside quotes) supported via `csv-parse`.
+ * Rich columns (`opportunity_hypothesis`, `why_now`, `icp_fit_score`, …) map into `extras` and
+ * into `score_json` enrichment (see `icpHypothesisBuilder`).
  */
 export function parseCsv(content: string): CsvImportRow[] {
-  const lines = content.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
-  const header = lines[0].split(',').map((s) => s.trim().toLowerCase());
-  const col = (name: string) => header.indexOf(name);
+  let records: Record<string, unknown>[];
+  try {
+    records = parse(content, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+      relax_column_count: true,
+      bom: true,
+    }) as Record<string, unknown>[];
+  } catch {
+    return [];
+  }
 
   const rows: CsvImportRow[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',').map((s) => s.trim());
-    const extras: Record<string, string> = {};
-    for (let hi = 0; hi < header.length; hi++) {
-      const h = header[hi];
-      if (!h || CORE_HEADERS.has(h)) continue;
-      const v = cols[hi]?.trim();
-      if (v) extras[h] = v;
+  for (const rec of records) {
+    const lower: Record<string, string> = {};
+    for (const [k, v] of Object.entries(rec)) {
+      if (v == null) continue;
+      lower[String(k).trim().toLowerCase()] = String(v).trim();
     }
-    const row: CsvImportRow = {
-      company: col('company') >= 0 ? (cols[col('company')] ?? '') : '',
-      domain: col('domain') >= 0 ? cols[col('domain')] || undefined : undefined,
-      email: col('email') >= 0 ? (cols[col('email')] ?? '') : '',
-      name: col('name') >= 0 ? cols[col('name')] || undefined : undefined,
+
+    let company = lower['company'] ?? '';
+    if (/additional rows follow/i.test(company) || /\.\.\.\s*\(additional/i.test(company)) continue;
+
+    const domain = lower['domain'] || undefined;
+    let email = lower['email'] ?? '';
+    if (!email && domain) {
+      const d = domain.replace(/^www\./i, '').trim();
+      email = `unknown@${d}`;
+    }
+
+    if (!company || !email) continue;
+
+    const extras: Record<string, string> = {};
+    for (const [k, v] of Object.entries(lower)) {
+      if (CORE_HEADERS.has(k)) continue;
+      if (v) extras[k] = v;
+    }
+
+    rows.push({
+      company,
+      email,
+      domain,
+      name: lower['name'] || undefined,
       extras,
-    };
-    if (row.company && row.email) rows.push(row);
+    });
   }
   return rows;
 }
@@ -102,10 +133,17 @@ function rowConfidence(row: CsvImportRow): number {
   if (dom) c += 0.2;
   if (row.company?.trim().length > 2) c += 0.1;
   if (row.extras.segment?.trim()) c += 0.1;
+  const icp = extrasScore01(row.extras, 'icp_fit_score');
+  const warm = extrasScore01(row.extras, 'warmth_score');
+  if (icp != null) c = Math.max(c, 0.4 + icp * 0.55);
+  else if (warm != null) c = Math.max(c, 0.35 + warm * 0.45);
   return Math.min(1, c);
 }
 
 function strategicallyInteresting(row: CsvImportRow): boolean {
+  if (row.extras.tier?.trim().toUpperCase() === 'A') return true;
+  const icp = extrasScore01(row.extras, 'icp_fit_score');
+  if (icp != null && icp >= 0.75) return true;
   const blob = `${row.company} ${Object.values(row.extras).join(' ')}`.toLowerCase();
   return /risk|parametric|insurance|trading|fund|market/i.test(blob);
 }
@@ -129,9 +167,15 @@ export function importCsvToSourcesAndProposals(
   const trust = TrustLevel.medium;
   const fresh = freshnessForIngest(t, trust);
   const icpProfileIds: string[] = [];
+  const domainsSeenInBatch = new Set<string>();
 
   for (let i = 0; i < parsed.length; i++) {
     const row = parsed[i];
+    const nd = normalizeRegistrableDomain(row.domain) || emailDomain(row.email);
+    if (nd) {
+      if (domainsSeenInBatch.has(nd)) continue;
+      domainsSeenInBatch.add(nd);
+    }
     const sourceId = `csv:${i}:${row.email}`;
     const existing = repo.getCRMEntitySourceByAdapterKey(scope, sourceId);
     if (existing) {

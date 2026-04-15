@@ -2,7 +2,13 @@
 
 ## What the importer does
 
-`nightshift sales import-csv <file.csv>` reads **core** columns plus **any extra headers** you add. Extra columns are stored in SQLite on the **account** as:
+`nightshift sales import-csv <file.csv>` reads **core** columns plus **any extra headers** you add. The file is parsed with **RFC 4180** rules (quoted fields, commas inside quotes) via `csv-parse`.
+
+**Minimum columns:** `company` and **`email` *or* `domain`**. If `email` is omitted but `domain` is present, the importer uses `unknown@<domain>` as a placeholder contact until you attach a real address.
+
+**Duplicate domains** in a single import: only the **first** row per normalized domain is turned into mutations (later rows are skipped) so pasted sheets with duplicate companies do not create junk accounts.
+
+Extra columns are stored in SQLite on the **account** as:
 
 - **`segment`** — if you include a `segment` column, it maps to `accounts.segment` (and is removed from the metrics blob so it is not duplicated in JSON).
 - **`score_json.pipeline`** — structured as:
@@ -10,6 +16,8 @@
   - `vertical`: `parametric_risk_markets`
   - `imported_at`: ISO timestamp
   - `raw`: key/value map of **every non-core column** except `segment` (strings).
+
+If you include **`opportunity_hypothesis`**, **`why_now`**, **`icp_fit_score`**, **`warmth_score`**, **`buyer_roles`**, **`tier`**, those values are folded into **`score_json.opportunity_hypothesis`** and **`icp_snapshot`** (sheet scores are treated as 0–10 → normalized 0–1), not only into `pipeline.raw`.
 
 On import, the Builder also merges **frozen v1 blocks** (see TypeScript types in `src/sales/types/scoreJsonContracts.ts` and `import { … } from './sales/contracts.js'`):
 

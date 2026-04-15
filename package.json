@@ -20,13 +20,16 @@
     "rollout:seed-world": "bash scripts/seed-sales-world.sh",
     "rollout:check": "node scripts/check-rollout-env.mjs",
     "ci:smoke": "npm run build && bash scripts/smoke-ci.sh",
-    "ci": "npm run typecheck && npm test && npm run build && bash scripts/smoke-ci.sh"
+    "ci": "npm run typecheck && npm test && npm run build && bash scripts/smoke-ci.sh",
+    "dataset:marketry": "node scripts/publish-marketry-dataset.mjs"
   },
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",
+    "csv-parse": "^5.6.0",
+    "csv-stringify": "^6.5.2",
     "discord.js": "^14.16.0",
     "dotenv": "^16.4.5"
   },

@@ -19,6 +19,11 @@ layer (Phase 5 — interpretable learning from outcomes; adaptive Closer hints;
 optional priority boosts). See `docs/sales-decision-engine.md`,
 `docs/sales-execution.md`, and `docs/sales-intelligence.md`.
 
+**CRM Builder (SQLite) + Marketry target sheet:** canonical import file
+[`examples/marketry_chicago_targets.csv`](examples/marketry_chicago_targets.csv),
+agent-oriented notes in [`docs/agents/CRM_MARKETRY_DATASET.md`](docs/agents/CRM_MARKETRY_DATASET.md),
+regenerate via `npm run dataset:marketry` after editing `datasets/marketry/chunk-*.mjs`.
+
 ```
 src/
   index.ts                 entry (daemon | cli | run)
