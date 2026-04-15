@@ -10,20 +10,24 @@ This file exists so **agents and humans** merging `integration/sales-v7` know wh
 
 **One-line internal description:** The CRM is **SQLite-backed** and **seeded from imports**; the **Sales OS** (slash commands) is currently **world-file-backed** and **decision-centric**; **unification** (CRM ↔ world deals) is a **future integration step**, not today’s default.
 
-| Surface | Data | How you use it |
-|--------|------|----------------|
-| **SQLite CRM** | `SALES_DB_PATH` | CLI: `nightshift sales import-csv` → `apply-pending`. Discord **prefix**: `!ns sales import-csv`, `apply-pending`, `status`, … — same pipeline (sources → mutations → accounts/contacts). |
-| **Slash Sales OS** | `SALES_WORLD_JSON` / `loadSalesWorld()` | `/sales`, `/debate`, `/top-decisions`, `/compare` — deal-centric JSON, **not** the SQLite CRM unless you wire them together later. |
+
+| Surface            | Data                                    | How you use it                                                                                                                                                                            |
+| ------------------ | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **SQLite CRM**     | `SALES_DB_PATH`                         | CLI: `nightshift sales import-csv` → `apply-pending`. Discord **prefix**: `!ns sales import-csv`, `apply-pending`, `status`, … — same pipeline (sources → mutations → accounts/contacts). |
+| **Slash Sales OS** | `SALES_WORLD_JSON` / `loadSalesWorld()` | `/sales`, `/debate`, `/top-decisions`, `/compare` — deal-centric JSON, **not** the SQLite CRM unless you wire them together later.                                                        |
+
 
 So: **`marketry_chicago_targets.csv` → import-csv / apply-pending → SQLite CRM** is the real seeded account/contact system. Slash decision UX does **not** automatically consume this CSV; see [`docs/sales-os-rollout.md`](../sales-os-rollout.md).
 
 ## Files
 
-| Path | Description |
-|------|-------------|
-| [`examples/marketry_chicago_targets.csv`](../../examples/marketry_chicago_targets.csv) | **Canonical import file** (44 unique domains). May be **edited directly** (e.g. quoted `opportunity_hypothesis` / `why_now`). |
-| [`datasets/marketry/chunk-01.mjs`](../../datasets/marketry/chunk-01.mjs) … [`chunk-05.mjs`](../../datasets/marketry/chunk-05.mjs) | Alternate source for regeneration; **out of sync** with the CSV is OK until you run `dataset:marketry` (which **overwrites** the CSV from chunks). If the CSV is the master, update chunks before regenerating, or skip `dataset:marketry`. |
-| [`scripts/publish-marketry-dataset.mjs`](../../scripts/publish-marketry-dataset.mjs) | Merges chunks, dedupes by domain, writes `unknown@<domain>` emails, emits `examples/marketry_chicago_targets.csv`. |
+
+| Path                                                                                                                              | Description                                                                                                                                                                                                                                 |
+| --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[examples/marketry_chicago_targets.csv](../../examples/marketry_chicago_targets.csv)`                                            | **Canonical import file** (44 unique domains). May be **edited directly** (e.g. quoted `opportunity_hypothesis` / `why_now`).                                                                                                               |
+| `[datasets/marketry/chunk-01.mjs](../../datasets/marketry/chunk-01.mjs)` … `[chunk-05.mjs](../../datasets/marketry/chunk-05.mjs)` | Alternate source for regeneration; **out of sync** with the CSV is OK until you run `dataset:marketry` (which **overwrites** the CSV from chunks). If the CSV is the master, update chunks before regenerating, or skip `dataset:marketry`. |
+| `[scripts/publish-marketry-dataset.mjs](../../scripts/publish-marketry-dataset.mjs)`                                              | Merges chunks, dedupes by domain, writes `unknown@<domain>` emails, emits `examples/marketry_chicago_targets.csv`.                                                                                                                          |
+
 
 ## Regenerate CSV after editing narratives
 
@@ -40,7 +44,7 @@ node dist/index.js sales import-csv examples/marketry_chicago_targets.csv
 node dist/index.js sales apply-pending <approver>
 ```
 
-Importer details: [`docs/companies-pipeline-format.md`](../companies-pipeline-format.md).
+Importer details: `[docs/companies-pipeline-format.md](../companies-pipeline-format.md)`.
 
 ## Column contract (v6)
 
@@ -54,8 +58,26 @@ Enrichment columns in the current file (all land in `score_json.pipeline.raw` un
 
 Seed rows use `contact_confidence=low`, `email_verified=false`, `outreach_eligible=false`, `record_type=company_seed` until enriched.
 
+### Enum appendix (v6)
+
+Values observed in the canonical sheet. Extend only with intent (update `scripts/validate-marketry-csv.mjs` if you add required columns).
+
+| Column | Values | Meaning |
+|--------|--------|---------|
+| `intro_path_confidence` | `heuristic` | Intro path is a normal network/sheet inference (default for UChicago/Chicago network rows). |
+| `intro_path_confidence` | `unverified` | Intro path is weak or non-local (e.g. `none (non-Chicago)`); do not treat as warm intro evidence. |
+| `hq_verified` | `yes` | HQ city/state claim is treated as standard seed confidence (aligned with sheet + public profile). |
+| `hq_verified` | `approx` | HQ is approximate or suburb-level (e.g. Buffalo Grove vs Chicago). |
+| `hq_verified` | `unverified` | HQ claim not relied on for outreach routing (e.g. non-Chicago anchor with weak tie). |
+| `hq_verification_status` | `heuristic` | HQ not independently verified; inferred from LinkedIn/site/notes. |
+| `hq_verification_status` | `verified_signal` | Strong public footprint for Chicago HQ (e.g. major listed commodity desks in this file). |
+| `domain_verification_status` | `verified` | Corporate domain treated as confirmed for seed purposes (offline/spot check). |
+
+CI drift check: `npm run validate:marketry-csv` (exact header order + **44** data rows).
+
 ## Notes
 
 - **44 accounts** in this snapshot (deduped domain list from the founder sheet). The **CSV in `examples/` is the master**; `datasets/marketry/chunk-*.mjs` may be stale unless you regenerate.
 - Contacts use **`unknown@domain`** until real emails are known; outreach stays review-gated per policy.
 - Possessive **Marketry’s** in source chunks uses `\u2019` in `.mjs` files to avoid escaping issues.
+

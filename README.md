@@ -276,12 +276,17 @@ the daemon registers **slash commands** (`/top-decisions`, `/debate`, `/compare`
 `/send`, `/outcome`, `/sales`) that call the same sales services — see
 [`DISCORD_SETUP.md`](DISCORD_SETUP.md).
 
+## Documentation map
+
+New to the repo: start at **[`docs/ONBOARDING.md`](docs/ONBOARDING.md)** — links **README** → sales phases → **CRM** (SQLite + Marketry CSV) → **Sales OS** (world JSON + slash commands) → rollout, with a short **product boundary** (CRM vs decision layer). Same content is summarized here: the **daemon** lives in this README; **sales** details are split across [`docs/PR_SALES_PHASES_1_8.md`](docs/PR_SALES_PHASES_1_8.md), [`docs/agents/CRM_MARKETRY_DATASET.md`](docs/agents/CRM_MARKETRY_DATASET.md), [`docs/sales-os-rollout.md`](docs/sales-os-rollout.md), and the topic docs linked from onboarding.
+
 ## Development
 
 ```bash
 npm run typecheck
 npm test                  # node:test — sample JSON shape + fixtures
-npm run ci:smoke          # build + offline smoke (eval fixtures, top-decisions, policy, CRM DB+CSV)
+npm run ci:smoke          # build + offline smoke (eval fixtures, top-decisions, policy, CRM DB+CSV, Marketry CSV)
+npm run validate:marketry-csv  # examples/marketry_chicago_targets.csv column + row contract only
 npm run ci                # typecheck + test + build + smoke (matches CI job)
 npm run rollout:check     # after .env + seed: Discord snowflakes + world shape (secrets not printed)
 npm run dev daemon        # run with tsx, no build step

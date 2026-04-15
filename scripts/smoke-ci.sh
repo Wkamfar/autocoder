@@ -55,4 +55,7 @@ node "$ROOT/scripts/smoke-crm-sqlite.mjs"
 echo "== CSV → CRMEntitySource (v7 import path)"
 node "$ROOT/scripts/smoke-csv-import.mjs"
 
+echo "== Marketry canonical CSV (column contract + row count)"
+node "$ROOT/scripts/validate-marketry-csv.mjs"
+
 echo "smoke-ci: all checks passed"
