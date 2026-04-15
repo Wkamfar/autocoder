@@ -71,6 +71,18 @@ Store under your team drive or wiki; link from the PR or release notes. This is 
 
 Set `DECISION_MOMENTS_ENABLED=1` and optionally `DISCORD_DECISION_CHANNEL_ID`. Expect **one** card, edited in place — see Phase 8 notes in `docs/PR_SALES_PHASES_1_8.md`.
 
+## CI (automated, no secrets)
+
+On push/PR to `main`, `develop`, or `integration/sales-v7`, GitHub Actions runs `npm ci`, typecheck, build, and **`bash scripts/smoke-ci.sh`**: seeds the sample world, runs `top-decisions` (JSON validation), `sales-action policy-eval` on samples, and opens a throwaway CRM SQLite DB to verify schema.
+
+Locally after a build:
+
+```bash
+bash scripts/smoke-ci.sh
+# or
+npm run ci:smoke
+```
+
 ## What “shipped on the branch” means
 
 Code is merged; **rollout is complete** when steps 1–4 pass in a real guild and golden-path evidence is stored for the team.

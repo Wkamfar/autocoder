@@ -16,7 +16,8 @@
     "cli": "tsx src/index.ts cli",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf dist",
-    "rollout:seed-world": "bash scripts/seed-sales-world.sh"
+    "rollout:seed-world": "bash scripts/seed-sales-world.sh",
+    "ci:smoke": "npm run build && bash scripts/smoke-ci.sh"
   },
   "engines": {
     "node": ">=22"
