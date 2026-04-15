@@ -15,7 +15,8 @@
     "daemon": "tsx src/index.ts daemon",
     "cli": "tsx src/index.ts cli",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "rollout:seed-world": "bash scripts/seed-sales-world.sh"
   },
   "engines": {
     "node": ">=22"

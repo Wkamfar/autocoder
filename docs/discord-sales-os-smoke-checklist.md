@@ -1,10 +1,12 @@
 # Discord Sales OS — Phase 7/8 live smoke checklist
 
+**Fast path:** [`sales-os-rollout.md`](./sales-os-rollout.md) (env freeze, seed world, minimum smoke, golden path capture).
+
 Use this in a **real guild** before calling Phase 7/8 shipped. Capture evidence (screenshots or message links) for the happy path.
 
 ## Preconditions
 
-- `.env` filled from `.env.example` (`DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_CHANNEL_ID`, Phase 8 keys as needed).
+- `.env` from [`.env.rollout.example`](../.env.rollout.example) or `.env.example` (`DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_CHANNEL_ID`; run `npm run rollout:seed-world` for a sample world).
 - Bot invited with permissions to read/send messages and use application commands in the target channels.
 - `DECISION_MOMENTS_ENABLED=1` if testing proactive cards.
 

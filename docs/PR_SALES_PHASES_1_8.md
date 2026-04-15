@@ -109,7 +109,7 @@ Full list and comments: **`.env.example`**.
 
 ## Testing
 
-Smoke-tested locally via CLI flows; **real-guild Discord smoke test** (`docs/discord-sales-os-smoke-checklist.md`) remains the final rollout validation step.
+Smoke-tested locally via CLI flows; **real-guild rollout** is documented in **`docs/sales-os-rollout.md`** (env freeze via `.env.rollout.example`, `npm run rollout:seed-world`, minimum smoke, golden path capture). Extended checks: `docs/discord-sales-os-smoke-checklist.md`.
 
 ```bash
 npm run build
