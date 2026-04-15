@@ -1,6 +1,10 @@
 import path from 'node:path';
 import { config } from '../../config.js';
-import { loadSalesWorld, defaultWorldPath } from '../../sales/world/fileWorldStore.js';
+import { defaultWorldPath } from '../../sales/world/fileWorldStore.js';
+import {
+  takeDossierSourceFromArgv,
+  resolveRankingWorld,
+} from '../../sales/world/worldDossierResolution.js';
 import {
   rankDealsForDebate,
   DECISION_SCORE_SCHEMA_VERSION,
@@ -72,9 +76,10 @@ function renderHumanUx(rows: DecisionScore[]): string {
 }
 
 export async function runTopDecisionsCli(argv: string[]): Promise<void> {
-  const p = parseArgv(argv);
+  const { source, argv: rest } = takeDossierSourceFromArgv(argv);
+  const p = parseArgv(rest);
   const worldPath = p.world ? path.resolve(p.world) : undefined;
-  const world = loadSalesWorld(worldPath);
+  const { world, provenance, source_used } = resolveRankingWorld({ source, worldPath });
 
   const rows = await rankDealsForDebate(world, {
     limit: p.limit,
@@ -85,6 +90,8 @@ export async function runTopDecisionsCli(argv: string[]): Promise<void> {
     const payload = {
       schema_version: DECISION_SCORE_SCHEMA_VERSION,
       world_path: worldPath ?? defaultWorldPath(),
+      dossier_provenance: provenance,
+      dossier_source_effective: source_used,
       generated_at: new Date().toISOString(),
       config_snapshot: {
         triggerMinDealValueUsd: config.decisionEngine.triggerMinDealValueUsd,
@@ -106,6 +113,7 @@ export function topDecisionsUsage(): string {
     'nightshift sales top-decisions [--world <path>] [--limit N] [--json] [--all]',
     '  Ranks open deals by DecisionScore + trigger rules (Phase 3). Advisory only.',
     '  --all  include deals scored but not debate_recommended',
-    `  World: ${defaultWorldPath()} or SALES_WORLD_JSON`,
+    '  --source crm|world|auto  data layer (default: SALES_DOSSIER_SOURCE or auto). crm = live SQLite.',
+    `  World file (when source is world, or auto): ${defaultWorldPath()} or SALES_WORLD_JSON`,
   ].join('\n');
 }

@@ -1,5 +1,10 @@
+import path from 'node:path';
 import { SessionManager } from '../../engines/session-manager.js';
-import { loadSalesWorld, defaultWorldPath } from '../../sales/world/fileWorldStore.js';
+import { defaultWorldPath } from '../../sales/world/fileWorldStore.js';
+import {
+  takeDossierSourceFromArgv,
+  resolveScopedWorld,
+} from '../../sales/world/worldDossierResolution.js';
 import { buildDossierPack } from '../../sales/pairDebate/dossierBuilder.js';
 import { runSingleDecisionModel } from '../../sales/pairDebate/singleDecision.js';
 import type { EngineName } from '../../types.js';
@@ -35,9 +40,11 @@ function resolveScope(p: ReturnType<typeof parseArgv>): DossierScope {
 }
 
 export async function runSingleDecisionCli(argv: string[]): Promise<void> {
-  const parsed = parseArgv(argv);
-  const world = loadSalesWorld(parsed.world);
+  const { source, argv: rest } = takeDossierSourceFromArgv(argv);
+  const parsed = parseArgv(rest);
   const scope = resolveScope(parsed);
+  const worldPath = parsed.world ? path.resolve(parsed.world) : undefined;
+  const { world } = resolveScopedWorld({ source, worldPath, scope });
   const dossier = buildDossierPack(world, scope);
 
   const sessions = new SessionManager();
@@ -57,7 +64,7 @@ export async function runSingleDecisionCli(argv: string[]): Promise<void> {
 export function singleDecisionUsage(): string {
   return [
     'nightshift sales single-decision --deal <id>   (baseline single-model; compare to pair-debate)',
-    `Data: ${defaultWorldPath()} or SALES_WORLD_JSON`,
-    'Optional: --engine claude|codex|...',
+    `Data: ${defaultWorldPath()} or SALES_WORLD_JSON; or CRM via --source crm / auto`,
+    'Optional: --source crm|world|auto  --engine claude|codex|...',
   ].join('\n');
 }

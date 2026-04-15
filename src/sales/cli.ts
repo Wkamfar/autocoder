@@ -13,6 +13,7 @@ import { runCompareDecisionsCli, compareDecisionsUsage } from '../cli/commands/s
 import { runTopDecisionsCli, topDecisionsUsage } from '../cli/commands/salesTopDecisions.js';
 import { runSalesActionCli, salesActionUsage } from '../cli/commands/salesAction.js';
 import { runStrategyExtractCli, strategyExtractUsage } from '../cli/commands/salesStrategyExtract.js';
+import { writeCrmWorldExport } from './world/crmWorldExport.js';
 
 /** Pair Debate / decision-engine commands — no CRM DB required. */
 const ANALYTIC = new Set([
@@ -106,7 +107,13 @@ export async function runSalesCli(args: string[]): Promise<void> {
     const approver = rest[0] || 'cli';
     const ctx = getSalesContext();
     const r = applyPendingPipeline(ctx, approver);
-    console.log('apply-pending done', r);
+    const { postApplySnapshot, ...counts } = r;
+    console.log('apply-pending done', counts);
+    if (postApplySnapshot.status === 'wrote') {
+      console.log('post-apply CRM snapshot:', postApplySnapshot.outPath);
+    } else if (postApplySnapshot.status === 'error') {
+      console.error('post-apply snapshot export failed:', postApplySnapshot.message);
+    }
     return;
   }
 
@@ -125,6 +132,27 @@ export async function runSalesCli(args: string[]): Promise<void> {
     return;
   }
 
+  if (cmd === 'crm-export-world') {
+    let outPath: string | undefined;
+    let bridgePath: string | undefined;
+    for (let i = 0; i < rest.length; i++) {
+      const a = rest[i];
+      if (a === '--out') outPath = rest[++i];
+      else if (a === '--bridge') bridgePath = rest[++i];
+    }
+    if (!outPath) {
+      console.error('usage: nightshift sales crm-export-world --out <path.json> [--bridge <path.json>]');
+      process.exit(2);
+    }
+    const { repo } = getSalesContext();
+    const { root } = writeCrmWorldExport({ repo, outPath, bridgePath });
+    console.log(
+      `crm-export-world: wrote ${outPath} (${root.accounts.length} accounts, ${root.contacts.length} contacts, ${root.deals.length} deals, ${root.activities.length} activities)`
+    );
+    if (bridgePath) console.log(`crm-export-world: bridge ${bridgePath}`);
+    return;
+  }
+
   if (cmd === 'help' || !cmd) {
     console.log(`NightShift sales — CRM (v7) + Pair Debate stack
 
@@ -132,8 +160,9 @@ CRM / pipeline:
   nightshift sales import-csv <file.csv>
   nightshift sales import-gmail-meta <messages.json>
   nightshift sales import-public-feed <feed.json>
-  nightshift sales apply-pending [approver]
+  nightshift sales apply-pending [approver]   (optional: SALES_POST_APPLY_EXPORT_PATH refreshes snapshot)
   nightshift sales first-ship <file.csv>
+  nightshift sales crm-export-world --out <path.json> [--bridge <bridge.json>]
 `);
     console.log('Pair Debate / decisions:\n');
     console.log(pairDebateUsage());
@@ -158,7 +187,9 @@ CRM / pipeline:
   }
 
   console.error(`unknown sales command: ${cmd}\n`);
-  console.error(`CRM: import-csv | import-gmail-meta | import-public-feed | apply-pending | first-ship`);
+  console.error(
+    `CRM: import-csv | import-gmail-meta | import-public-feed | apply-pending | first-ship | crm-export-world`
+  );
   console.error('');
   console.error(pairDebateUsage());
   console.error(compareDecisionsUsage());

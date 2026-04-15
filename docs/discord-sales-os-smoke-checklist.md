@@ -1,27 +1,29 @@
 # Discord Sales OS — Phase 7/8 live smoke checklist
 
-**Fast path:** [`sales-os-rollout.md`](./sales-os-rollout.md) (env freeze, seed world, minimum smoke, golden path capture).
+**Fast path:** `[sales-os-rollout.md](./sales-os-rollout.md)` (env freeze, seed world, minimum smoke, golden path capture).
 
 Use this in a **real guild** before calling Phase 7/8 shipped. Capture evidence (screenshots or message links) for the happy path.
 
 ## Preconditions
 
-- `.env` from [`.env.rollout.example`](../.env.rollout.example) or `.env.example` (`DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_CHANNEL_ID`; run `npm run rollout:seed-world` for a sample world).
+- `.env` from `[.env.rollout.example](../.env.rollout.example)` or `.env.example` (`DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_CHANNEL_ID`; run `npm run rollout:seed-world` for a sample world).
 - Bot invited with permissions to read/send messages and use application commands in the target channels.
 - `DECISION_MOMENTS_ENABLED=1` if testing proactive cards.
 
 ## Checklist
 
-| # | Check | Pass |
-|---|--------|------|
-| 1 | Bot starts; **one** proactive decision card appears in `DISCORD_DECISION_CHANNEL_ID` or `DISCORD_CHANNEL_ID`. | ☐ |
-| 2 | **Run Debate** on the card runs Pair Debate and posts the polished synthesis (thread or flow as implemented). | ☐ |
-| 3 | Monitor tick **updates** the existing card instead of posting duplicate spam. | ☐ |
-| 4 | **Send / Edit / Skip** (and **Compare** where applicable) behave and match button labels. | ☐ |
-| 5 | `nsos:dm:*` custom ids (proactive card) round-trip: no “Unknown interaction” / wrong deal. | ☐ |
-| 6 | Restart bot: **no duplicate** proactive cards (state + edit path). | ☐ |
-| 7 | Suppressed deals **do not** surface as top moment (cross-check with world + suppression rules). | ☐ |
-| 8 | Forced error path (e.g. invalid deal): user-facing text stays **≤ 3 lines** (alert style). | ☐ |
+
+| #   | Check                                                                                                         | Pass |
+| --- | ------------------------------------------------------------------------------------------------------------- | ---- |
+| 1   | Bot starts; **one** proactive decision card appears in `DISCORD_DECISION_CHANNEL_ID` or `DISCORD_CHANNEL_ID`. | ☐    |
+| 2   | **Run Debate** on the card runs Pair Debate and posts the polished synthesis (thread or flow as implemented). | ☐    |
+| 3   | Monitor tick **updates** the existing card instead of posting duplicate spam.                                 | ☐    |
+| 4   | **Send / Edit / Skip** (and **Compare** where applicable) behave and match button labels.                     | ☐    |
+| 5   | `nsos:dm:`* custom ids (proactive card) round-trip: no “Unknown interaction” / wrong deal.                    | ☐    |
+| 6   | Restart bot: **no duplicate** proactive cards (state + edit path).                                            | ☐    |
+| 7   | Suppressed deals **do not** surface as top moment (cross-check with world + suppression rules).               | ☐    |
+| 8   | Forced error path (e.g. invalid deal): user-facing text stays **≤ 3 lines** (alert style).                    | ☐    |
+
 
 ## Evidence (optional)
 

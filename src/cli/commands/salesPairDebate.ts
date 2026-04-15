@@ -1,6 +1,10 @@
 import path from 'node:path';
 import { SessionManager } from '../../engines/session-manager.js';
-import { loadSalesWorld, defaultWorldPath } from '../../sales/world/fileWorldStore.js';
+import { defaultWorldPath } from '../../sales/world/fileWorldStore.js';
+import {
+  takeDossierSourceFromArgv,
+  resolveScopedWorld,
+} from '../../sales/world/worldDossierResolution.js';
 import { buildDossierPack } from '../../sales/pairDebate/dossierBuilder.js';
 import { runPairDebate } from '../../sales/pairDebate/pairDebateOrchestrator.js';
 import { exportPairDebateRun } from '../../sales/pairDebate/exportRun.js';
@@ -43,9 +47,14 @@ function resolveScope(p: ReturnType<typeof parseArgv>): DossierScope {
 }
 
 export async function runPairDebateCli(argv: string[]): Promise<void> {
-  const parsed = parseArgv(argv);
-  const world = loadSalesWorld(parsed.world);
+  const { source, argv: rest } = takeDossierSourceFromArgv(argv);
+  const parsed = parseArgv(rest);
   const scope = resolveScope(parsed);
+  const worldPath = parsed.world ? path.resolve(parsed.world) : undefined;
+  const { world, provenance, source_used } = resolveScopedWorld({ source, worldPath, scope });
+  if (process.env.SALES_LOG_DOSSIER_PROVENANCE === '1') {
+    console.error(`[sales] dossier provenance=${provenance} source_effective=${source_used}`);
+  }
   const dossier = buildDossierPack(world, scope);
 
   const sessions = new SessionManager();
@@ -116,8 +125,8 @@ export function pairDebateUsage(): string {
     'nightshift sales pair-debate --account <id>',
     'nightshift sales pair-debate --contact <id>',
     '',
-    `Data: JSON world file (default ${defaultWorldPath()} or SALES_WORLD_JSON).`,
-    'Optional: --world <path>  --rounds <n>  --engine-closer claude|codex|...  --engine-buyer ...',
+    `Data: JSON world file (default ${defaultWorldPath()} or SALES_WORLD_JSON), or live CRM (--source crm / auto).`,
+    'Optional: --source crm|world|auto  --world <path>  --rounds <n>  --engine-closer claude|codex|...  --engine-buyer ...',
     'Export: --export <dir>  writes synthesis JSON, memo.md, draft-email.txt, full.json',
   ].join('\n');
 }

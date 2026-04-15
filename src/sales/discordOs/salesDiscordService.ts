@@ -4,8 +4,13 @@
 import path from 'node:path';
 import { SessionManager } from '../../engines/session-manager.js';
 import { config } from '../../config.js';
-import { loadSalesWorld, defaultWorldPath, getDeal, getAccount } from '../world/fileWorldStore.js';
+import { defaultWorldPath, getDeal, getAccount } from '../world/fileWorldStore.js';
 import type { SalesWorldFile } from '../world/types.js';
+import {
+  defaultDossierSourceFromEnv,
+  resolveRankingWorld,
+  resolveScopedWorld,
+} from '../world/worldDossierResolution.js';
 import { buildDossierPack } from '../pairDebate/dossierBuilder.js';
 import { runPairDebate } from '../pairDebate/pairDebateOrchestrator.js';
 import { runSingleDecisionModel } from '../pairDebate/singleDecision.js';
@@ -19,7 +24,8 @@ import { appendOutcome } from '../pairDebate/outcomes.js';
 import type { PairDebateOutcomeRecord } from '../pairDebate/types.js';
 
 export function loadWorld(): SalesWorldFile {
-  return loadSalesWorld();
+  const src = defaultDossierSourceFromEnv();
+  return resolveRankingWorld({ source: src }).world;
 }
 
 export function defaultWorldLabel(): string {
@@ -41,8 +47,9 @@ export function resolveDealScope(dealId: string): DossierScope {
 }
 
 export async function runPairDebateForDeal(dealId: string): Promise<PairDebateRunResult> {
-  const world = loadWorld();
+  const src = defaultDossierSourceFromEnv();
   const scope = resolveDealScope(dealId);
+  const { world } = resolveScopedWorld({ source: src, scope });
   const dossier = buildDossierPack(world, scope);
   const sessions = new SessionManager();
   try {
@@ -60,8 +67,9 @@ export async function runCompareOnline(dealId: string): Promise<{
   singleSynthesis: FinalDebateSynthesis;
   pairSynthesis: FinalDebateSynthesis;
 }> {
-  const world = loadWorld();
+  const src = defaultDossierSourceFromEnv();
   const scope = resolveDealScope(dealId);
+  const { world } = resolveScopedWorld({ source: src, scope });
   const dossier = buildDossierPack(world, scope);
   const sessions = new SessionManager();
   try {
@@ -97,7 +105,8 @@ export async function exportRunToState(result: PairDebateRunResult): Promise<str
 }
 
 export function formatDealSummary(dealId: string): { title: string; description: string } | null {
-  const world = loadWorld();
+  const src = defaultDossierSourceFromEnv();
+  const { world } = resolveScopedWorld({ source: src, scope: { kind: 'deal', id: dealId } });
   const deal = getDeal(world, dealId);
   if (!deal) return null;
   const acct = getAccount(world, deal.account_id);

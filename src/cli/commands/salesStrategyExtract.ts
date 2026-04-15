@@ -1,6 +1,11 @@
 import path from 'node:path';
 import { loadOutcomes } from '../../sales/pairDebate/outcomes.js';
 import { loadSalesWorld, defaultWorldPath } from '../../sales/world/fileWorldStore.js';
+import type { SalesWorldFile } from '../../sales/world/types.js';
+import {
+  takeDossierSourceFromArgv,
+  resolveRankingWorld,
+} from '../../sales/world/worldDossierResolution.js';
 import {
   extractStrategyProfile,
   saveStrategyProfile,
@@ -24,9 +29,17 @@ function parseArgv(argv: string[]): { world?: string; out?: string; json: boolea
 }
 
 export async function runStrategyExtractCli(argv: string[]): Promise<void> {
-  const p = parseArgv(argv);
+  const { source, argv: rest } = takeDossierSourceFromArgv(argv);
+  const p = parseArgv(rest);
   const outcomes = await loadOutcomes(50_000);
-  const world = p.world ? loadSalesWorld(path.resolve(p.world)) : undefined;
+  let world: SalesWorldFile | undefined;
+  if (p.world) {
+    world = loadSalesWorld(path.resolve(p.world));
+  } else if (source === 'crm') {
+    world = resolveRankingWorld({ source: 'crm' }).world;
+  } else if (source === 'world') {
+    world = loadSalesWorld();
+  }
   const company_id = p.company ?? process.env.SALES_COMPANY_ID;
 
   const profile = extractStrategyProfile({
@@ -53,7 +66,8 @@ export async function runStrategyExtractCli(argv: string[]): Promise<void> {
 export function strategyExtractUsage(): string {
   return [
     'nightshift sales strategy-extract [--world <sales-world.json>] [--out path] [--company id] [--json]',
-    '  Reads pair-debate-outcomes + optional CRM world; writes sales-strategy-profile JSON.',
+    '  Reads pair-debate-outcomes + optional world; writes sales-strategy-profile JSON.',
+    '  Without --world: use --source crm for live SQLite, or --source world for default JSON.',
     `  Default out: ${defaultStrategyProfilePath()} (override with SALES_STRATEGY_PROFILE_PATH)`,
   ].join('\n');
 }

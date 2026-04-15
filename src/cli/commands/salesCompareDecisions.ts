@@ -1,7 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { SessionManager } from '../../engines/session-manager.js';
-import { loadSalesWorld, defaultWorldPath } from '../../sales/world/fileWorldStore.js';
+import { defaultWorldPath } from '../../sales/world/fileWorldStore.js';
+import {
+  takeDossierSourceFromArgv,
+  resolveScopedWorld,
+} from '../../sales/world/worldDossierResolution.js';
 import { buildDossierPack } from '../../sales/pairDebate/dossierBuilder.js';
 import { runSingleDecisionModel } from '../../sales/pairDebate/singleDecision.js';
 import { runPairDebate } from '../../sales/pairDebate/pairDebateOrchestrator.js';
@@ -70,7 +74,8 @@ function loadSynthesisAndMeta(filePath: string): {
 }
 
 export async function runCompareDecisionsCli(argv: string[]): Promise<void> {
-  const parsed = parseArgv(argv);
+  const { source, argv: rest } = takeDossierSourceFromArgv(argv);
+  const parsed = parseArgv(rest);
 
   if (parsed.singleJson && parsed.pairJson) {
     const A = loadSynthesisAndMeta(parsed.singleJson);
@@ -108,8 +113,9 @@ export async function runCompareDecisionsCli(argv: string[]): Promise<void> {
   console.error('    Expect roughly 2x token usage vs pair-debate alone, and multi-minute latency.');
   console.error('');
 
-  const world = loadSalesWorld(parsed.world);
   const scope = resolveScope(parsed);
+  const worldPath = parsed.world ? path.resolve(parsed.world) : undefined;
+  const { world } = resolveScopedWorld({ source, worldPath, scope });
   const dossier = buildDossierPack(world, scope);
 
   const sessions = new SessionManager();
@@ -150,7 +156,7 @@ export async function runCompareDecisionsCli(argv: string[]): Promise<void> {
 export function compareDecisionsUsage(): string {
   return [
     'Offline: nightshift sales compare-decisions --single-json <path> --pair-json <path> [-o comparison.md]',
-    `Online:  nightshift sales compare-decisions --deal <id> [-o comparison.md]  (see stderr cost warning)`,
+    `Online:  nightshift sales compare-decisions --deal <id> [--source crm|world|auto] [-o comparison.md]  (see stderr cost warning)`,
     `World: ${defaultWorldPath()} or SALES_WORLD_JSON`,
   ].join('\n');
 }

@@ -109,9 +109,19 @@ node dist/index.js sales import-csv examples/marketry_chicago_targets.csv
 node dist/index.js sales apply-pending you
 ```
 
+After CRM seed, you can **export SQLite into the same world JSON shape** the decision stack already reads, then point `--world` at that file (see [CRM_SALES_OS_UNIFICATION.md](./CRM_SALES_OS_UNIFICATION.md) Phase 1):
+
+```bash
+node dist/index.js sales crm-export-world --out state/sales-world.crm-snapshot.json
+```
+
+**Phase 2 — read-through from SQLite (no export file):** set `SALES_DOSSIER_SOURCE=crm` or pass `--source crm` on `top-decisions` / `pair-debate` / etc. Scoped commands (`pair-debate --deal …`) with `--source auto` (default) use CRM when that id exists in `SALES_DB_PATH`, otherwise the world JSON. Set `SALES_LOG_DOSSIER_PROVENANCE=1` to print provenance on stderr for `pair-debate`.
+
+**Phase 3 — auto-refresh a snapshot file after CRM applies:** set `SALES_POST_APPLY_EXPORT_PATH` to a JSON path (and optionally `SALES_POST_APPLY_BRIDGE_PATH`). After `apply-pending` or `first-ship` changes data, the same export as `crm-export-world` is written there — useful so `SALES_WORLD_JSON` or `--world` stays aligned without a second manual export. Off by default.
+
 **2 — Decision stack (separate data: world file)**
 
-Ensure `state/sales-world.json` exists (e.g. `npm run rollout:seed-world`), then:
+Ensure `state/sales-world.json` exists (e.g. `npm run rollout:seed-world`), or use a CRM snapshot from the command above, then:
 
 ```bash
 node dist/index.js sales top-decisions --limit 10 --world examples/sales-world.sample.json

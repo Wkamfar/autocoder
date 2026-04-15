@@ -1,6 +1,6 @@
 # CRM ↔ Sales OS unification — design
 
-**Status:** architecture spec (not implemented). **Today:** SQLite CRM and `SalesWorldFile` are independent; see [`ONBOARDING.md`](./ONBOARDING.md).
+**Status:** architecture spec. **Phase 1:** [`crmWorldExport.ts`](../src/sales/world/crmWorldExport.ts). **Phase 2:** [`crmWorldDataSource.ts`](../src/sales/world/crmWorldDataSource.ts) + [`worldDossierResolution.ts`](../src/sales/world/worldDossierResolution.ts). **Phase 3:** [`postApplySnapshot.ts`](../src/sales/world/postApplySnapshot.ts) (opt-in post-apply snapshot refresh). See [`ONBOARDING.md`](./ONBOARDING.md).
 
 **Goal:** connect **imported CRM truth** to **decision-engine / slash UX** without breaking auditability or surprise writes.
 
@@ -71,9 +71,16 @@ Teams often want to skip to “live CRM reads.” **Don’t.** Export-first reus
 
 `buildDossierPack` / callers gain a **`WorldDataSource`** abstraction (`JsonWorldDataSource` vs `CrmWorldDataSource`). **Only after 5.1 is stable.**
 
-### 5.3 Incremental sync / cache — **Phase 3+**
+### 5.3 Post-apply snapshot refresh — **Phase 3**
 
-Post-`apply-pending` hooks, optional cache invalidation. **Only after 5.1 + 5.2.**
+Optional **automatic re-export** after successful CRM writes (`apply-pending`, `first-ship`) when **`SALES_POST_APPLY_EXPORT_PATH`** is set. Keeps a checked-in or sidecar JSON fresh for `--world` / `crm_snapshot` workflows without manual `crm-export-world`. **Default off** — no silent disk writes.
+
+| Env | Meaning |
+|-----|---------|
+| **`SALES_POST_APPLY_EXPORT_PATH`** | If non-empty, write full CRM snapshot JSON to this path after a successful apply pipeline (when work was done) or after `first-ship` completes. |
+| **`SALES_POST_APPLY_BRIDGE_PATH`** | Optional; same semantics as `crm-export-world --bridge`. |
+
+Implementation: [`postApplySnapshot.ts`](../src/sales/world/postApplySnapshot.ts) → `maybeRefreshCrmSnapshotAfterApply` from [`operations.ts`](../src/sales/operations.ts) and [`firstShipFlow.ts`](../src/sales/firstShipFlow.ts).
 
 ---
 
@@ -199,10 +206,10 @@ Bump **`crm_export_version`** when export field mappings change. **`schema_versi
 
 ## 16. Rollout checklist (engineering)
 
-- [ ] **Phase 1:** `crm-export-world` + envelope + minimum shape + bridge file rules + docs + smoke: export → validate → `top-decisions --world <export>`.
-- [ ] **Phase 2:** `CrmWorldDataSource` + deterministic **`auto`** + CLI flags.
-- [ ] **Phase 3:** optional post-apply snapshot refresh / cache.
-- [ ] Discord: document **`SALES_DOSSIER_SOURCE`** behavior.
+- [x] **Phase 1:** `crm-export-world` + envelope + minimum shape + bridge file rules + docs + smoke: export → validate → `top-decisions --world <export>`.
+- [x] **Phase 2:** `CrmWorldDataSource` + `resolveRankingWorld` / `resolveScopedWorld` + deterministic **`auto`** + `--source crm|world|auto` + `SALES_DOSSIER_SOURCE` (CLI + Discord).
+- [x] **Phase 3:** post-apply snapshot refresh (`SALES_POST_APPLY_EXPORT_PATH`) + optional bridge; `apply-pending` + `first-ship` + Discord `apply-pending`.
+- [x] Discord: **`SALES_DOSSIER_SOURCE`** respected by slash paths that load a world (same resolver as CLI).
 
 ---
 
@@ -216,7 +223,7 @@ Bump **`crm_export_version`** when export field mappings change. **`schema_versi
 | 2 | Map to `SalesAccount` / `SalesContact` / `SalesDeal` / `SalesActivity` | Matches [`types.ts`](../src/sales/world/types.ts) |
 | 3 | Emit root **envelope**: `schema_version`, `exported_at`, `source: "crm_snapshot"`, `crm_export_version` | Present in every export |
 | 4 | Preserve **minimum shape** (§7) | Validator passes; dossier has name, stage, value when CRM has data |
-| 5 | Write optional **`state/crm-world-bridge.json`** when id mapping non-trivial | File is **overwrite** per export; documented as cache |
+| 5 | Write optional **`--bridge`** (`state/crm-world-bridge.json`) | File is **overwrite** per export; documented as cache |
 | 6 | CLI `nightshift sales crm-export-world --out <path>` | Exits 0; creates file |
 | 7 | Wire **`npm run build`** + smoke: export temp DB → validate shape → `top-decisions --world` | CI green |
 | 8 | Document in [`ONBOARDING.md`](./ONBOARDING.md) one-liner: “after CRM seed, export then point `--world` at snapshot” | New dev path updated |
@@ -228,10 +235,36 @@ Bump **`crm_export_version`** when export field mappings change. **`schema_versi
 | Area | Path |
 |------|------|
 | World types | `src/sales/world/types.ts`, `fileWorldStore.ts` |
+| Phase 2 resolution | `src/sales/world/worldDossierResolution.ts`, `crmWorldDataSource.ts` |
+| Phase 3 post-apply export | `src/sales/world/postApplySnapshot.ts`, `operations.ts`, `firstShipFlow.ts` |
 | Dossier / debate | `src/sales/pairDebate/dossierBuilder.ts`, `pairDebateOrchestrator.ts` |
 | Discord | `src/sales/discordOs/salesDiscordService.ts` |
 | CRM repo | `src/sales/storage/salesRepository.ts` |
 | World shape CI | `scripts/validate-sales-world-shape.mjs` |
+
+---
+
+## 19. Phase 2 implementation checklist (`CrmWorldDataSource`)
+
+| # | Task | Acceptance |
+|---|------|------------|
+| 1 | `salesWorldFromCrmRepository` / `CrmWorldDataSource` | Same mapping as Phase 1 export |
+| 2 | `resolveScopedWorld` / `resolveRankingWorld` | §6: `auto` uses CRM only when entity exists in SQLite (scoped); ranking `auto` uses JSON unless `--source crm` |
+| 3 | CLI `--source` on `top-decisions`, `pair-debate`, `single-decision`, `compare-decisions`, `strategy-extract` | Parses and resolves |
+| 4 | Discord `loadWorld` / deal paths | Uses `defaultDossierSourceFromEnv()` + resolvers |
+| 5 | JSON: `dossier_provenance`, `dossier_source_effective` on `top-decisions --json` | Present |
+
+---
+
+## 20. Phase 3 implementation checklist (`postApplySnapshot`)
+
+| # | Task | Acceptance |
+|---|------|------------|
+| 1 | `maybeRefreshCrmSnapshotAfterApply` | Opt-in via `SALES_POST_APPLY_EXPORT_PATH`; skip when unset |
+| 2 | `apply-pending` pipeline | Writes snapshot when pipeline applied work; skips on noop |
+| 3 | `first-ship` | Writes snapshot on completion when env set |
+| 4 | Discord `apply-pending` | User-visible line when snapshot wrote or failed |
+| 5 | Smoke / tests | CI validates post-apply file shape |
 
 ---
 

@@ -341,6 +341,11 @@ export class SalesRepository {
     ).map(rowToDeal);
   }
 
+  /** All deals (for CRM → world export). */
+  listDeals(): Deal[] {
+    return (this.db.prepare(`SELECT * FROM deals`).all() as Record<string, unknown>[]).map(rowToDeal);
+  }
+
   insertRelationshipEdge(e: RelationshipEdge): void {
     this.db
       .prepare(
@@ -425,6 +430,13 @@ export class SalesRepository {
         string,
         unknown
       >[]
+    ).map(rowToActivity);
+  }
+
+  /** All activities, oldest first (for export narrative order). */
+  listActivities(): Activity[] {
+    return (
+      this.db.prepare(`SELECT * FROM activities ORDER BY created_at ASC`).all() as Record<string, unknown>[]
     ).map(rowToActivity);
   }
 
