@@ -11,6 +11,17 @@
   - `imported_at`: ISO timestamp
   - `raw`: key/value map of **every non-core column** except `segment` (strings).
 
+On import, the Builder also merges **frozen v1 blocks** (see TypeScript types in `src/sales/types/scoreJsonContracts.ts` and `import { … } from './sales/contracts.js'`):
+
+| Key | Purpose |
+|-----|---------|
+| `opportunity_hypothesis` | `OpportunityHypothesisV1` — risk thesis, use case, buying center, `why_now`, `fit_score`, evidence refs |
+| `icp_snapshot` | `ICPScoreSnapshotV1` — aggregate fit score, component scores, explain lines |
+| `outreach` | `OutreachReadinessV1` — eligible vs not (distinct from suppression) |
+| `candidate_routing` | `CandidateRoutingMetaV1` — promote / watchlist / discard |
+
+Canonical **freshness** on accounts (and contacts when set) uses `last_verified_at`, `freshness_score`, `stale_reason` on the entity row; CSV import sets initial freshness from trust tier.
+
 Core columns (fixed names, case-insensitive header row):
 
 | Column   | Required | Notes                          |
@@ -44,3 +55,7 @@ Use whatever you actually collect; names are yours. Examples that map well to **
 ## Example file
 
 See `examples/companies_parametric_icp.sample.csv`.
+
+## Milestone scale (~100 companies)
+
+Generate a 100-row test CSV: `node scripts/gen-milestone-csv.mjs > /tmp/milestone100.csv`, then `nightshift sales import-csv /tmp/milestone100.csv` and `nightshift sales apply-pending <approver>`.

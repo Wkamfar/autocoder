@@ -3,5 +3,6 @@
  */
 export * from './types/enums.js';
 export * from './types/entities.js';
+export * from './types/scoreJsonContracts.js';
 export { SALES_INVARIANTS } from './invariants.js';
 export { MERGE_POLICY } from './mergePolicy.js';

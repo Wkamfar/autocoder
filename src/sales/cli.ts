@@ -2,6 +2,7 @@ import { config } from '../config.js';
 import { initSalesMode, getSalesContext } from './salesContext.js';
 import { importCsvToSourcesAndProposals } from './adapters/csvImport.js';
 import { ingestGmailMetadata } from './adapters/gmailMetadata.js';
+import { ingestPublicRegistryFeed } from './adapters/publicFeedStub.js';
 import { runFirstShipFlow } from './firstShipFlow.js';
 import { applyPendingPipeline } from './operations.js';
 import { runPairDebateCli, pairDebateUsage } from '../cli/commands/salesPairDebate.js';
@@ -72,7 +73,7 @@ export async function runSalesCli(args: string[]): Promise<void> {
       process.exit(2);
     }
     const { repo } = getSalesContext();
-    const r = importCsvToSourcesAndProposals(repo, csvPath, 'cli', false);
+    const r = importCsvToSourcesAndProposals(repo, csvPath, 'network_csv', false);
     console.log('CRMEntitySource count:', r.sources.length, 'mutations:', r.mutationIds.length);
     return;
   }
@@ -84,8 +85,20 @@ export async function runSalesCli(args: string[]): Promise<void> {
       process.exit(2);
     }
     const { repo } = getSalesContext();
-    const rows = ingestGmailMetadata(repo, jsonPath, 'cli');
+    const rows = ingestGmailMetadata(repo, jsonPath, 'gmail_meta');
     console.log('ingested CRMEntitySource rows:', rows.length);
+    return;
+  }
+
+  if (cmd === 'import-public-feed') {
+    const jsonPath = rest[0];
+    if (!jsonPath) {
+      console.error('usage: nightshift sales import-public-feed <feed.json>');
+      process.exit(2);
+    }
+    const { repo } = getSalesContext();
+    const r = ingestPublicRegistryFeed(repo, jsonPath, 'public_registry_v1');
+    console.log('public feed sources:', r.sources.length, 'mutations:', r.mutationIds.length);
     return;
   }
 
@@ -118,6 +131,7 @@ export async function runSalesCli(args: string[]): Promise<void> {
 CRM / pipeline:
   nightshift sales import-csv <file.csv>
   nightshift sales import-gmail-meta <messages.json>
+  nightshift sales import-public-feed <feed.json>
   nightshift sales apply-pending [approver]
   nightshift sales first-ship <file.csv>
 `);
@@ -144,7 +158,7 @@ CRM / pipeline:
   }
 
   console.error(`unknown sales command: ${cmd}\n`);
-  console.error(`CRM: import-csv | import-gmail-meta | apply-pending | first-ship`);
+  console.error(`CRM: import-csv | import-gmail-meta | import-public-feed | apply-pending | first-ship`);
   console.error('');
   console.error(pairDebateUsage());
   console.error(compareDecisionsUsage());

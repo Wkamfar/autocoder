@@ -15,7 +15,7 @@
     "daemon": "tsx src/index.ts daemon",
     "cli": "tsx src/index.ts cli",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test test/sales-world-shape.test.mjs",
+    "test": "node --test test/*.test.mjs",
     "clean": "rm -rf dist",
     "rollout:seed-world": "bash scripts/seed-sales-world.sh",
     "rollout:check": "node scripts/check-rollout-env.mjs",

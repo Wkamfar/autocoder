@@ -167,6 +167,8 @@ export const CRMEntitySourceType = {
   spreadsheet: 'spreadsheet',
   meeting_transcript: 'meeting_transcript',
   founder_export: 'founder_export',
+  /** v1 allowlisted public company feed (single adapter). */
+  public_registry_feed: 'public_registry_feed',
 } as const;
 export type CRMEntitySourceType =
   (typeof CRMEntitySourceType)[keyof typeof CRMEntitySourceType];
