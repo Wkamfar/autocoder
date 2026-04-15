@@ -31,8 +31,16 @@ node dist/index.js sales apply-pending <approver>
 
 Importer details: [`docs/companies-pipeline-format.md`](../companies-pipeline-format.md).
 
+## Column contract (v3)
+
+Core importer columns: `company`, `email` (or derive from `domain`), `domain`, optional `name`.
+
+Enrichment columns in the current file (all land in `score_json.pipeline.raw` unless consumed by scoring):
+
+`tier`, `segment`, `warmth_score`, `icp_fit_score`, `buyer_roles`, `opportunity_hypothesis`, `why_now`, `notes`, `employee_band`, `revenue_band`, `regions`, `regulated`, `parametric_maturity`, `innovation_partner_fit`, `captive_or_alt_risk`, `hq_city`, `hq_state`, `hq_country`, `ownership`, `linkedin_company_url`, `evidence_url`, `evidence_note`, `evidence_date`, `intro_path`, `hq_verified`, `domain_verified`
+
 ## Notes
 
-- **44 accounts** in this snapshot (deduped domain list from the founder sheet). To add companies, edit the appropriate `chunk-*.mjs` and re-run `dataset:marketry`.
+- **44 accounts** in this snapshot (deduped domain list from the founder sheet). The **CSV in `examples/` is the master**; `datasets/marketry/chunk-*.mjs` may be stale unless you regenerate.
 - Contacts use **`unknown@domain`** until real emails are known; outreach stays review-gated per policy.
 - Possessive **Marketry’s** in source chunks uses `\u2019` in `.mjs` files to avoid escaping issues.
