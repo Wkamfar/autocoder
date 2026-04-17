@@ -6,7 +6,7 @@ state/
 .DS_Store
 
 # Brain is a separate git repo (knowledge layer); runtime + private remotes live here
-brain/
+/brain/
 
 # Local-only Claude Code permissions (may reference machine paths / hosts)
 .claude/settings.local.json
