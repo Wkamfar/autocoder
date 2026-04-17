@@ -219,8 +219,8 @@ export class NightShiftLoop extends EventEmitter {
       try {
         const context = await this.context.build(task);
         const apiDocs = await apiInstructions.loadRelevant(task);
-        const apiBlock = apiDocs.trim()
-          ? `\n\n## API reference\n${apiDocs}`
+        const apiBlock = apiDocs.join('\n').trim()
+          ? `\n\n## API reference\n${apiDocs.join('\n')}`
           : '';
         const injected = this.state.injected_instructions.join('\n');
         const finalContext =
