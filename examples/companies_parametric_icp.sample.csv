@@ -1,0 +1,4 @@
+company,domain,email,name,segment,employee_band,revenue_usd_band,industry,regulated,regions,captive_or_alt_risk,parametric_maturity,innovation_partner_fit,mid_market_focus,notes
+Northwind Logistics,northwind-logistics.example,ops@northwind-logistics.example,Alex Rivera,mid_market_parametric_partner,200-500,50m_250m,supply_chain,0,"US-MW;US-S",1,exploring,0.82,1,Would co-design index for warehouse disruption
+Harbor Muni Utilities,harbor-muni.example,cfo@harbor-muni.example,Sam Lee,mid_market_parametric_partner,500-1500,100m_500m,public_utility,1,"US-NE",0,none,0.76,1,Cat and grid stress; procurement cycle 18m
+Juniper AgTech,juniper-ag.example,risk@juniper-ag.example,Morgan Patel,mid_market_parametric_partner,80-200,15m_75m,agtech,0,"US-CA;MX-N",0,pilot,0.88,1,Weather index interest; mid-tier not big-4 captive

@@ -1,0 +1,53 @@
+{
+  "accounts": [
+    {
+      "id": "acme-corp",
+      "name": "Acme Corp",
+      "owner": "you@example.com",
+      "notes": "Existing customer; expansion motion."
+    }
+  ],
+  "contacts": [
+    {
+      "id": "jordan-lee",
+      "account_id": "acme-corp",
+      "name": "Jordan Lee",
+      "email": "jordan@acme.example",
+      "role": "Director IT"
+    }
+  ],
+  "deals": [
+    {
+      "id": "acme-expansion-2026",
+      "account_id": "acme-corp",
+      "name": "Teams + SSO expansion",
+      "stage": "proposal",
+      "value_cents": 7800000,
+      "currency": "USD",
+      "last_touch_days_ago": 9,
+      "objections_raised": ["Security questionnaire completed Q4"],
+      "next_planned_action": "Schedule pricing call (stale)",
+      "decision_deadline": "2026-04-18T17:00:00Z",
+      "timing_sensitivity": "high"
+    }
+  ],
+  "activities": [
+    {
+      "id": "a1",
+      "account_id": "acme-corp",
+      "deal_id": "acme-expansion-2026",
+      "at": "2026-04-06T14:00:00Z",
+      "type": "email_outbound",
+      "summary": "AE sent broad follow-up asking about pricing review — no single CTA."
+    },
+    {
+      "id": "a2",
+      "account_id": "acme-corp",
+      "deal_id": "acme-expansion-2026",
+      "at": "2026-03-28T10:00:00Z",
+      "type": "note",
+      "summary": "Jordan mentioned looping in buyer-side contact if deal moves forward."
+    }
+  ],
+  "suppression_flags": ["marketing_ok"]
+}

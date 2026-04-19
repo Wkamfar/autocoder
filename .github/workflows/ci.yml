@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, integration/sales-v7]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests (node:test)
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Offline sales stack smoke
+        run: |
+          set -o pipefail
+          bash scripts/smoke-ci.sh 2>&1 | tee smoke.log
+
+      - name: Upload smoke log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-log
+          path: smoke.log
+          if-no-files-found: ignore

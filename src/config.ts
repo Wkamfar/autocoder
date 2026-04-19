@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import path from 'node:path';
+import type { EngineName } from './types.js';
 
 function num(key: string, fallback: number): number {
   const v = process.env[key];
@@ -29,14 +30,25 @@ function list(key: string, fallback: string[] = []): string[] {
 
 const defaultStateDir = path.join(process.cwd(), 'state');
 
+function engineName(key: string, fallback: EngineName): EngineName {
+  const v = str(key, fallback);
+  if (v === 'claude' || v === 'codex' || v === 'cursor' || v === 'local') return v;
+  return fallback;
+}
+
 export const config = {
   discord: {
     token: str('DISCORD_BOT_TOKEN'),
     channelId: str('DISCORD_CHANNEL_ID'),
+    /** If set, only this user may run `!ns sales` (recommended). */
     ownerId: str('DISCORD_OWNER_ID'),
     webhookUrl: str('DISCORD_WEBHOOK_URL'),
+    /** If set, `!ns sales` only works in this channel (use your sales channel id). */
     salesChannelId: str('DISCORD_SALES_CHANNEL_ID'),
+    /** Require DISCORD_OWNER_ID to match for sales commands (default true). */
     salesRequireOwner: bool('DISCORD_SALES_REQUIRE_OWNER', true),
+    /** Guild id for slash command registration (Sales Decision OS + future). */
+    guildId: str('DISCORD_GUILD_ID'),
     agents: {
       pm: {
         token: str('DISCORD_PM_BOT_TOKEN'),
@@ -135,6 +147,85 @@ export const config = {
   sales: {
     dbPath: str('SALES_DB_PATH', path.join(str('STATE_DIR', defaultStateDir), 'sales.db')),
     staleFollowupDays: num('STALE_FOLLOWUP_DAYS', 7),
+  },
+  /** Pair Debate — adversarial sales deliberation (advisory-only v1; no CRM writes). */
+  pairDebate: {
+    maxRounds: num('PAIR_DEBATE_MAX_ROUNDS', 3),
+    closerEngine: engineName('PAIR_DEBATE_CLOSER_ENGINE', 'claude'),
+    buyerEngine: engineName('PAIR_DEBATE_BUYER_ENGINE', 'claude'),
+    closerModel: str('PAIR_DEBATE_CLOSER_MODEL', ''),
+    buyerModel: str('PAIR_DEBATE_BUYER_MODEL', ''),
+    synthesisEngine: engineName('PAIR_DEBATE_SYNTHESIS_ENGINE', 'claude'),
+    synthesisModel: str('PAIR_DEBATE_SYNTHESIS_MODEL', ''),
+    maxPromptChars: num('PAIR_DEBATE_MAX_PROMPT_CHARS', 28_000),
+    maxResponseChars: num('PAIR_DEBATE_MAX_RESPONSE_CHARS', 12_000),
+    /** Minimum sample size before win_rate is treated as strong (else anecdotal). */
+    patternMinSample: num('PAIR_DEBATE_PATTERN_MIN_N', 3),
+  },
+  /**
+   * Phase 3 — decision detection + ranking (advisory; suggests when Pair Debate matters).
+   * Does not run debates, mutate CRM, or send mail.
+   */
+  decisionEngine: {
+    /** Minimum nominal deal value (USD) for the value-based trigger (0 = disable this trigger). */
+    triggerMinDealValueUsd: num('DECISION_TRIGGER_MIN_DEAL_USD', 25_000),
+    /** Days since last touch — stall trigger when >= this. */
+    triggerStallDays: num('DECISION_TRIGGER_STALL_DAYS', 7),
+    /** Stage substring matches (case-insensitive) for "high-touch" stage trigger + scoring. */
+    triggerStages: list('DECISION_TRIGGER_STAGES', [
+      'proposal',
+      'pricing',
+      'negotiat',
+      'contract',
+    ]),
+    /** Fires `high_uncertainty` trigger when modeled uncertainty >= this (0..1). */
+    triggerMinUncertainty: num('DECISION_TRIGGER_MIN_UNCERTAINTY', 0.55),
+    /** Minimum objections count to label `conflicting_signals` trigger. */
+    triggerConflictingObjections: num('DECISION_TRIGGER_CONFLICTING_OBJ', 2),
+    /** Minimum `priority_index` (0..100) to mark `debate_recommended`. */
+    minPriorityIndex: num('DECISION_MIN_PRIORITY_INDEX', 35),
+    /** Minimum matched trigger rules (labels) required for `debate_recommended`. */
+    debateMinTriggers: num('DECISION_DEBATE_MIN_TRIGGERS', 1),
+    /** Outcomes: distinct override reasons in lookback window to fire override pattern trigger. */
+    overridePatternMinCount: num('DECISION_OVERRIDE_PATTERN_MIN', 2),
+    overrideLookbackDays: num('DECISION_OVERRIDE_LOOKBACK_DAYS', 90),
+    /** Normalizes deal size when computing impact (USD). */
+    impactReferenceDealUsd: num('DECISION_IMPACT_REFERENCE_USD', 200_000),
+  },
+  /**
+   * Phase 8 — proactive decision moments (one active surface, optional precompute).
+   */
+  decisionMoments: {
+    enabled: bool('DECISION_MOMENTS_ENABLED', false),
+    /** Channel to post the single active moment card (defaults to DISCORD_CHANNEL_ID). */
+    channelId: str('DISCORD_DECISION_CHANNEL_ID'),
+    monitorIntervalMs: num('DECISION_MONITOR_INTERVAL_MS', 300_000),
+    minConfidence: num('DECISION_MIN_CONFIDENCE', 0.55),
+    /** Minimum priority_index (0–100) scaled gate. */
+    minPriorityIndex: num('DECISION_MOMENT_MIN_PRIORITY', 45),
+    expiryHours: num('DECISION_EXPIRY_HOURS', 24),
+    precomputeDebate: bool('DECISION_PRECOMPUTE_DEBATE', false),
+    maxIgnoreBeforeDrop: num('DECISION_MOMENT_MAX_IGNORE', 3),
+  },
+  /**
+   * Phase 4 — SalesAction execution + policy (no default auto-send).
+   * Email adapters and real sends are gated behind config + future work.
+   */
+  salesExecution: {
+    /** When false, `auto` mode is downgraded to `assisted` in policy evaluation. */
+    autoSendEnabled: bool('SALES_EXEC_AUTO_SEND_ENABLED', false),
+    /** If true, recipient email domain must match `allowedEmailDomains`. */
+    requireDomainAllowlist: bool('SALES_EXEC_REQUIRE_DOMAIN_ALLOWLIST', false),
+    allowedEmailDomains: list('SALES_EXEC_ALLOWED_EMAIL_DOMAINS'),
+    bannedPhrases: list('SALES_EXEC_BANNED_PHRASES'),
+    /** Substrings that fail suppression if present in body (case-insensitive). */
+    suppressionPatterns: list('SALES_EXEC_SUPPRESSION_PATTERNS'),
+    maxMessageChars: num('SALES_EXEC_MAX_MESSAGE_CHARS', 50_000),
+    /** Deals at or above this nominal USD always require recorded approval. */
+    approvalMinDealValueUsd: num('SALES_EXEC_APPROVAL_MIN_DEAL_USD', 100_000),
+    enterpriseRequiresApproval: bool('SALES_EXEC_ENTERPRISE_APPROVAL', true),
+    /** Action types that always require approval (comma list). */
+    actionTypesRequiringApproval: list('SALES_EXEC_APPROVAL_ACTION_TYPES'),
   },
 };
 

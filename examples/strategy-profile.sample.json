@@ -1,0 +1,49 @@
+{
+  "schema_version": "1",
+  "company_id": "example-co",
+  "updated_at": "2026-04-15T12:00:00.000Z",
+  "tone": "direct_low_friction",
+  "best_followup_type": "priority_check_email",
+  "avoid": ["timing_changed", "buyer_replied_before_send"],
+  "strong_patterns": [
+    {
+      "id": "lp_tag_stalled_proposal",
+      "label": "Tag: stalled_proposal",
+      "scenario_key": "stalled_proposal",
+      "sample_size": 12,
+      "positive_signal_rate": 0.68,
+      "known_outcomes": 10,
+      "dominant_followup": "priority_check_email",
+      "strength": "strong",
+      "interpretation": "For outcomes tagged \"stalled_proposal\", 10 had a known buyer signal; 68% were positive/neutral (n=12 rows). Dominant motion label: priority_check_email."
+    }
+  ],
+  "pattern_summaries": [],
+  "segment_hints": [
+    {
+      "segment_key": "stage:proposal|bucket:md",
+      "segment": { "stage_substring": "proposal", "deal_value_bucket": "md" },
+      "bias_bullets": [
+        "Positive/neutral buyer signals ≈ 65% of 11 known outcomes (rows=18).",
+        "Common motion label: priority_check_email."
+      ],
+      "pattern_ids": []
+    }
+  ],
+  "segment_priority_tunings": [
+    {
+      "segment_key": "stage:proposal|bucket:md",
+      "segment": { "stage_substring": "proposal", "deal_value_bucket": "md" },
+      "priority_boost_suggestion": 8,
+      "basis": "Stage \"proposal\" + bucket \"md\": observed positive-signal rate 65% over 11 known outcomes (n=18 rows, floor=3).",
+      "sample_size": 18
+    }
+  ],
+  "extraction": {
+    "extracted_at": "2026-04-15T12:00:00.000Z",
+    "outcome_rows_used": 40,
+    "outcome_rows_with_tags": 35,
+    "min_sample_floor": 3,
+    "warnings": []
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "eval-intro-decision",
+  "title": "Strategic intro — go / no-go",
+  "world": {
+    "accounts": [{ "id": "acc-id", "name": "Innoventures", "notes": "Partner-led intro" }],
+    "contacts": [{ "id": "c-id", "account_id": "acc-id", "name": "Casey", "role": "Head of Product" }],
+    "deals": [
+      {
+        "id": "deal-id",
+        "account_id": "acc-id",
+        "stage": "qualification",
+        "value_cents": 4500000,
+        "last_touch_days_ago": 1
+      }
+    ],
+    "activities": [
+      {
+        "id": "a-id",
+        "account_id": "acc-id",
+        "deal_id": "deal-id",
+        "at": "2026-04-14T16:00:00Z",
+        "type": "email_outbound",
+        "summary": "Warm intro email sent via partner; awaiting reply."
+      }
+    ]
+  },
+  "scope": { "kind": "deal", "id": "deal-id" },
+  "expect": { "dossier_substrings": ["Innoventures"], "min_dossier_length": 90 }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "eval-procurement-ambiguity",
+  "title": "Procurement mentioned once — unclear if active",
+  "world": {
+    "accounts": [{ "id": "acc-pa", "name": "Adventure Works" }],
+    "contacts": [{ "id": "c-pa", "account_id": "acc-pa", "name": "Morgan", "role": "IT" }],
+    "deals": [
+      {
+        "id": "deal-pa",
+        "account_id": "acc-pa",
+        "stage": "proposal",
+        "last_touch_days_ago": 11,
+        "objections_raised": ["Mentioned procurement once in passing"]
+      }
+    ],
+    "activities": [
+      {
+        "id": "a-pa",
+        "account_id": "acc-pa",
+        "deal_id": "deal-pa",
+        "at": "2026-04-03T11:00:00Z",
+        "type": "call",
+        "summary": "Champion said might need procurement if we go above $50k."
+      }
+    ]
+  },
+  "scope": { "kind": "deal", "id": "deal-pa" },
+  "expect": { "dossier_substrings": ["procurement", "proposal"], "min_dossier_length": 100 }
+}

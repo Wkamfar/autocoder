@@ -101,10 +101,18 @@ export async function handleSalesCommand(msg: Message, sub: string, _args: strin
 
     case 'apply-pending': {
       const r = applyPendingPipeline(ctx, approver);
+      const { postApplySnapshot, ...counts } = r;
+      let snap = '';
+      if (postApplySnapshot.status === 'wrote') {
+        snap = `\nCRM snapshot refreshed: \`${postApplySnapshot.outPath}\``;
+      } else if (postApplySnapshot.status === 'error') {
+        snap = `\n**Snapshot export failed:** ${postApplySnapshot.message}`;
+      }
       return (
         '```\n' +
-        `apply-pending: mutations=${r.mutationsApplied} link=${r.linkMutations} deals=${r.dealMutations}` +
-        '\n```'
+        `apply-pending: mutations=${counts.mutationsApplied} link=${counts.linkMutations} deals=${counts.dealMutations}` +
+        '\n```' +
+        snap
       );
     }
 

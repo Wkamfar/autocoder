@@ -1,0 +1,29 @@
+{
+  "id": "eval-budget-signal",
+  "title": "Budget freeze rumor",
+  "world": {
+    "accounts": [{ "id": "acc-bs", "name": "Wide World Importers" }],
+    "contacts": [{ "id": "c-bs", "account_id": "acc-bs", "name": "Lee", "role": "CFO" }],
+    "deals": [
+      {
+        "id": "deal-bs",
+        "account_id": "acc-bs",
+        "stage": "proposal",
+        "last_touch_days_ago": 6,
+        "objections_raised": ["Heard informal budget freeze Q2"]
+      }
+    ],
+    "activities": [
+      {
+        "id": "a-bs",
+        "account_id": "acc-bs",
+        "deal_id": "deal-bs",
+        "at": "2026-04-08T13:00:00Z",
+        "type": "note",
+        "summary": "Champion unsure if freeze is real."
+      }
+    ]
+  },
+  "scope": { "kind": "deal", "id": "deal-bs" },
+  "expect": { "dossier_substrings": ["budget", "proposal"], "min_dossier_length": 90 }
+}

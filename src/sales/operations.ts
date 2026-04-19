@@ -2,12 +2,15 @@ import { CRMMutationStatus, MutationApplyResult } from './types/enums.js';
 import { approveMutation } from './builder/crmMutationHelpers.js';
 import { proposeLinkContactsToAccountsByDomain, proposeDealsForLinkedContacts } from './builder/postImportLink.js';
 import type { SalesContext } from './salesContext.js';
+import type { PostApplySnapshotOutcome } from './world/postApplySnapshot.js';
+import { maybeRefreshCrmSnapshotAfterApply } from './world/postApplySnapshot.js';
 
 /** Approve + apply proposed mutations, then link + deals pipeline (shared CLI + Discord). */
 export function applyPendingPipeline(ctx: SalesContext, approver: string): {
   mutationsApplied: number;
   linkMutations: number;
   dealMutations: number;
+  postApplySnapshot: PostApplySnapshotOutcome;
 } {
   const { repo, applyService } = ctx;
   let mutationsApplied = 0;
@@ -44,5 +47,10 @@ export function applyPendingPipeline(ctx: SalesContext, approver: string): {
       dealMutations += 1;
     }
   }
-  return { mutationsApplied, linkMutations, dealMutations };
+  const pipeline = { mutationsApplied, linkMutations, dealMutations };
+  const postApplySnapshot = maybeRefreshCrmSnapshotAfterApply(repo, {
+    kind: 'apply_pipeline',
+    pipeline,
+  });
+  return { ...pipeline, postApplySnapshot };
 }

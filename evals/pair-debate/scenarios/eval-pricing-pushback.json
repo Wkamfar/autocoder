@@ -1,0 +1,32 @@
+{
+  "id": "eval-pricing-pushback",
+  "title": "Pricing pushback on renewal",
+  "world": {
+    "accounts": [{ "id": "acc-pp", "name": "Contoso Labs" }],
+    "contacts": [{ "id": "c-pp", "account_id": "acc-pp", "name": "Sam", "email": "sam@c.example" }],
+    "deals": [
+      {
+        "id": "deal-pp",
+        "account_id": "acc-pp",
+        "name": "Renewal FY27",
+        "stage": "negotiation",
+        "value_cents": 12000000,
+        "last_touch_days_ago": 2,
+        "objections_raised": ["Price 12% above budget"],
+        "timing_sensitivity": "medium"
+      }
+    ],
+    "activities": [
+      {
+        "id": "a-pp",
+        "account_id": "acc-pp",
+        "deal_id": "deal-pp",
+        "at": "2026-04-14T09:00:00Z",
+        "type": "email_inbound",
+        "summary": "Buyer says need better unit economics vs competitor quote."
+      }
+    ]
+  },
+  "scope": { "kind": "deal", "id": "deal-pp" },
+  "expect": { "dossier_substrings": ["negotiation", "budget"], "min_dossier_length": 100 }
+}

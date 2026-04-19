@@ -95,7 +95,16 @@ export class MutationApplyService {
   }
 
   private applyCreateAccount(m: CRMMutation, t: string): ApplyOutcome {
-    const p = m.proposed_payload as { id?: string; name: string; domain?: string; segment?: string };
+    const p = m.proposed_payload as {
+      id?: string;
+      name: string;
+      domain?: string;
+      segment?: string;
+      score_json?: Record<string, unknown>;
+      last_verified_at?: string;
+      freshness_score?: number;
+      stale_reason?: string;
+    };
     const id = p.id ?? this.repo.newId();
     if (this.repo.getAccount(id)) {
       return this.finishNoop(m, 'account id exists');
@@ -105,6 +114,10 @@ export class MutationApplyService {
       name: p.name,
       domain: p.domain,
       segment: p.segment,
+      last_verified_at: p.last_verified_at,
+      freshness_score: p.freshness_score,
+      stale_reason: p.stale_reason,
+      score_json: p.score_json,
       created_at: t,
       updated_at: t,
     };
@@ -147,6 +160,9 @@ export class MutationApplyService {
       email?: string;
       full_name?: string;
       title?: string;
+      last_verified_at?: string;
+      freshness_score?: number;
+      stale_reason?: string;
     };
     if (p.email) {
       const existing = this.repo.findContactByEmail(p.email);
@@ -159,6 +175,9 @@ export class MutationApplyService {
       email: p.email,
       full_name: p.full_name,
       title: p.title,
+      last_verified_at: p.last_verified_at,
+      freshness_score: p.freshness_score,
+      stale_reason: p.stale_reason,
       created_at: t,
       updated_at: t,
     };
@@ -207,6 +226,8 @@ export class MutationApplyService {
       updated_at: t,
     };
     this.repo.updateContact(merged);
+
+    this.repo.rewriteActivitiesEntityId(EntityRefType.contact, victimId, survivorId);
 
     const deals = this.repo.listOpenDeals().filter((d) => d.contact_id === victimId);
     for (const d of deals) {

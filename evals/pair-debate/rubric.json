@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "name": "Pair Debate synthesis (heuristic)",
+  "scale": "0-9 points automated; human rubric 0-2 per criterion in docs",
+  "automated_weights": {
+    "has_next_step": 2,
+    "has_why_now": 1,
+    "has_risks": 1,
+    "has_draft": 2,
+    "acknowledges_disagreement": 2,
+    "not_empty_agreement": 1
+  },
+  "human_criteria": [
+    "tension_surface",
+    "disagreement_preserved",
+    "next_step_actionable",
+    "draft_usable",
+    "grounded_in_dossier"
+  ]
+}

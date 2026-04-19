@@ -1,0 +1,23 @@
+{
+  "id": "eval-unclear-buyer",
+  "title": "Unclear economic buyer",
+  "world": {
+    "accounts": [{ "id": "acc-ub", "name": "Fabrikam" }],
+    "contacts": [
+      { "id": "c1", "account_id": "acc-ub", "name": "Jamie", "role": "Manager" },
+      { "id": "c2", "account_id": "acc-ub", "name": "Riley", "role": "Finance analyst" }
+    ],
+    "deals": [
+      {
+        "id": "deal-ub",
+        "account_id": "acc-ub",
+        "stage": "discovery",
+        "last_touch_days_ago": 5,
+        "next_planned_action": "Find budget owner"
+      }
+    ],
+    "activities": []
+  },
+  "scope": { "kind": "deal", "id": "deal-ub" },
+  "expect": { "dossier_substrings": ["discovery", "Fabrikam"], "min_dossier_length": 80 }
+}

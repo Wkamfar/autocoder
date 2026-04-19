@@ -1,0 +1,10 @@
+{
+  "items": [
+    {
+      "name": "Sample Public Issuer Inc",
+      "domain": "sample-issuer.example.com",
+      "ticker": "SMP",
+      "cik": "0001234567"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "id": "eval-stalled-proposal",
+  "title": "Stalled proposal, multi-day silence",
+  "world": {
+    "accounts": [{ "id": "acc-sp", "name": "Sparta Inc", "owner": "rep@example.com" }],
+    "contacts": [
+      {
+        "id": "c-sp",
+        "account_id": "acc-sp",
+        "name": "Alex Rowe",
+        "email": "alex@sparta.example",
+        "role": "Director IT"
+      }
+    ],
+    "deals": [
+      {
+        "id": "deal-sp",
+        "account_id": "acc-sp",
+        "name": "Platform expansion",
+        "stage": "proposal",
+        "value_cents": 7800000,
+        "currency": "USD",
+        "last_touch_days_ago": 9,
+        "objections_raised": ["Security questionnaire Q4"],
+        "next_planned_action": "Schedule pricing call",
+        "decision_deadline": "2026-05-01T17:00:00Z",
+        "timing_sensitivity": "high"
+      }
+    ],
+    "activities": [
+      {
+        "id": "a-sp-1",
+        "account_id": "acc-sp",
+        "deal_id": "deal-sp",
+        "at": "2026-04-06T15:00:00Z",
+        "type": "email_outbound",
+        "summary": "Broad follow-up on pricing review — weak CTA."
+      }
+    ]
+  },
+  "scope": { "kind": "deal", "id": "deal-sp" },
+  "expect": {
+    "dossier_substrings": ["proposal", "Sparta"],
+    "min_dossier_length": 120
+  }
+}

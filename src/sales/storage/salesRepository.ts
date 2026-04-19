@@ -12,6 +12,7 @@ import type {
   SalesAction,
   SuppressionRecord,
 } from '../types/entities.js';
+import { normalizeLegalName, normalizeRegistrableDomain } from '../builder/entityNormalization.js';
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -193,6 +194,24 @@ export class SalesRepository {
     return (this.db.prepare(`SELECT * FROM accounts`).all() as Record<string, unknown>[]).map(rowToAccount);
   }
 
+  /** Accounts whose normalized domain equals `norm` (registrable form). */
+  findAccountsByNormalizedDomain(norm: string): Account[] {
+    return this.listAccounts().filter((a) => normalizeRegistrableDomain(a.domain) === norm);
+  }
+
+  /** Accounts whose normalized legal name equals `norm`. */
+  findAccountsByNormalizedLegalName(norm: string): Account[] {
+    return this.listAccounts().filter((a) => normalizeLegalName(a.name) === norm);
+  }
+
+  /** Merge policy: repoint activities that referenced merged-away entity (plan §4). */
+  rewriteActivitiesEntityId(entityType: string, fromEntityId: string, toEntityId: string): number {
+    const r = this.db
+      .prepare(`UPDATE activities SET entity_id = ? WHERE entity_type = ? AND entity_id = ?`)
+      .run(toEntityId, entityType, fromEntityId);
+    return Number(r.changes ?? 0);
+  }
+
   insertContact(c: Contact): void {
     this.db
       .prepare(
@@ -322,6 +341,11 @@ export class SalesRepository {
     ).map(rowToDeal);
   }
 
+  /** All deals (for CRM → world export). */
+  listDeals(): Deal[] {
+    return (this.db.prepare(`SELECT * FROM deals`).all() as Record<string, unknown>[]).map(rowToDeal);
+  }
+
   insertRelationshipEdge(e: RelationshipEdge): void {
     this.db
       .prepare(
@@ -406,6 +430,13 @@ export class SalesRepository {
         string,
         unknown
       >[]
+    ).map(rowToActivity);
+  }
+
+  /** All activities, oldest first (for export narrative order). */
+  listActivities(): Activity[] {
+    return (
+      this.db.prepare(`SELECT * FROM activities ORDER BY created_at ASC`).all() as Record<string, unknown>[]
     ).map(rowToActivity);
   }
 

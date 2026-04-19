@@ -14,6 +14,7 @@ import {
   proposeMutation,
   approveMutation,
 } from './builder/crmMutationHelpers.js';
+import { maybeRefreshCrmSnapshotAfterApply } from './world/postApplySnapshot.js';
 import {
   CRMMutationType,
   EntityRefType,
@@ -91,5 +92,12 @@ export async function runFirstShipFlow(ctx: SalesContext, opt: FirstShipOptions)
     approveMutation(repo, stageMutation.id, opt.approver);
     const m = repo.getCRMMutationById(stageMutation.id);
     if (m) applyService.apply(m);
+  }
+
+  const postApplySnapshot = maybeRefreshCrmSnapshotAfterApply(repo, { kind: 'first_ship_complete' });
+  if (postApplySnapshot.status === 'error') {
+    console.error('[sales] post-apply snapshot export failed:', postApplySnapshot.message);
+  } else if (postApplySnapshot.status === 'wrote') {
+    console.log('[sales] post-apply CRM snapshot:', postApplySnapshot.outPath);
   }
 }

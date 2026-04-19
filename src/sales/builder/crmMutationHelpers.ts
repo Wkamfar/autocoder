@@ -67,13 +67,29 @@ export function buildCreateAccountMutation(
   name: string,
   domain: string | undefined,
   evidence: EvidenceRef[],
-  autoApply: boolean
+  autoApply: boolean,
+  opts?: {
+    segment?: string;
+    score_json?: Record<string, unknown>;
+    last_verified_at?: string;
+    freshness_score?: number;
+    stale_reason?: string;
+    confidence_score?: number;
+  }
 ): CRMMutation {
   return proposeMutation(repo, {
     mutation_type: CRMMutationType.create_account,
     target_entity_type: EntityRefType.account,
-    proposed_payload: { name, domain },
-    confidence_score: 0.9,
+    proposed_payload: {
+      name,
+      domain,
+      ...(opts?.segment != null ? { segment: opts.segment } : {}),
+      ...(opts?.score_json != null ? { score_json: opts.score_json } : {}),
+      ...(opts?.last_verified_at != null ? { last_verified_at: opts.last_verified_at } : {}),
+      ...(opts?.freshness_score != null ? { freshness_score: opts.freshness_score } : {}),
+      ...(opts?.stale_reason != null ? { stale_reason: opts.stale_reason } : {}),
+    },
+    confidence_score: opts?.confidence_score ?? 0.9,
     source_evidence: evidence,
     explanation: `Create account ${name}`,
     auto_apply_allowed: autoApply,
@@ -86,13 +102,26 @@ export function buildCreateContactMutation(
   email: string,
   fullName: string | undefined,
   evidence: EvidenceRef[],
-  autoApply: boolean
+  autoApply: boolean,
+  opts?: {
+    last_verified_at?: string;
+    freshness_score?: number;
+    stale_reason?: string;
+    confidence_score?: number;
+  }
 ): CRMMutation {
   return proposeMutation(repo, {
     mutation_type: CRMMutationType.create_contact,
     target_entity_type: EntityRefType.contact,
-    proposed_payload: { account_id: accountId, email, full_name: fullName },
-    confidence_score: 0.85,
+    proposed_payload: {
+      account_id: accountId,
+      email,
+      full_name: fullName,
+      ...(opts?.last_verified_at != null ? { last_verified_at: opts.last_verified_at } : {}),
+      ...(opts?.freshness_score != null ? { freshness_score: opts.freshness_score } : {}),
+      ...(opts?.stale_reason != null ? { stale_reason: opts.stale_reason } : {}),
+    },
+    confidence_score: opts?.confidence_score ?? 0.85,
     source_evidence: evidence,
     explanation: `Create contact ${email}`,
     auto_apply_allowed: autoApply,
