@@ -10,6 +10,9 @@ import { NightShiftDaemon } from '../daemon.js';
 import { Logger } from '../utils/logger.js';
 import { ComparisonReport, RunState, Task, TaskResult } from '../types.js';
 import { COMMAND_HELP, handleCommand } from './commands.js';
+import { installNsSlashCommands } from './nsSlash/install.js';
+import { ChatService } from '../chat/chat-service.js';
+import { installChatListener } from './chat-listener.js';
 
 export class ClawBot {
   private client: Client;
@@ -35,6 +38,13 @@ export class ClawBot {
       return;
     }
     this.client.on('messageCreate', (m) => this.onMessage(m));
+    installNsSlashCommands(this.client, this.daemon);
+    const chat = new ChatService(config.brain.dir, process.cwd());
+    installChatListener(
+      this.client,
+      chat,
+      config.discord.chatChannelId || config.discord.channelId
+    );
     this.client.once('ready', async () => {
       this.log.info(`logged in as ${this.client.user?.tag}`);
       if (config.discord.channelId) {

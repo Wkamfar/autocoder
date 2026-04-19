@@ -31,6 +31,8 @@ export const config = {
   discord: {
     token: str('DISCORD_BOT_TOKEN'),
     channelId: str('DISCORD_CHANNEL_ID'),
+    chatChannelId: str('DISCORD_CHAT_CHANNEL_ID'),
+    guildId: str('DISCORD_GUILD_ID'),
     ownerId: str('DISCORD_OWNER_ID'),
     webhookUrl: str('DISCORD_WEBHOOK_URL'),
   },
