@@ -12,20 +12,46 @@ import { Logger } from '../utils/logger.js';
  *
  * Intentionally simple: one DeepSeek session per call, no planner/branch
  * pipeline, no Claude, no tools.
+ *
+ * Supports a custom `persona` (prepended to the system prompt) and an
+ * optional `dynamicContext` callback that returns role-specific live data
+ * (e.g. the Sales chat injects current CRM state) — also cached with the
+ * rest of the system prompt for `cacheTtlMs`.
  */
+export interface ChatOptions {
+  /** Replaces the default preamble. Used to give each channel a persona. */
+  persona?: string;
+  /**
+   * Optional callback producing role-specific live context, appended to
+   * the system prompt. Cached with the rest of the prompt.
+   */
+  dynamicContext?: () => Promise<string> | string;
+  /** Tag used in logs so you can tell multiple services apart. */
+  name?: string;
+}
+
 export class ChatService {
-  private log = new Logger('chat');
+  private log: Logger;
   private memory = new Map<string, ChatTurn[]>();
   private cache: { text: string; loadedAt: number } | null = null;
   private readonly maxTurns = 20; // 10 user/assistant pairs
   private readonly cacheTtlMs = 5 * 60 * 1000;
   private readonly sectionCap = 4000;
   private readonly totalCap = 24000;
+  private readonly persona: string;
+  private readonly dynamicContext?: () => Promise<string> | string;
 
   constructor(
     private readonly brainDir: string = config.brain.dir,
-    private readonly repoRoot: string = process.cwd()
-  ) {}
+    private readonly repoRoot: string = process.cwd(),
+    options: ChatOptions = {}
+  ) {
+    this.log = new Logger(options.name ? `chat:${options.name}` : 'chat');
+    this.persona =
+      options.persona ||
+      "You are NightShift's chat assistant. NightShift is an autonomous build daemon that runs Discord-driven coding tasks. Answer the user's questions using the repo context below. Be concise and direct. If you don't know something from the context, say so rather than guessing.";
+    this.dynamicContext = options.dynamicContext;
+  }
 
   async ask(
     channelId: string,
@@ -96,13 +122,32 @@ export class ChatService {
   }
 
   private async buildSystemPrompt(): Promise<string> {
+    const staticPart = await this.buildStaticSections();
+    // dynamicContext is always fetched fresh — role-specific live data
+    // (e.g. current CRM state) should not be stuck in a 5-min cache.
+    if (this.dynamicContext) {
+      try {
+        const extra = await this.dynamicContext();
+        if (extra && extra.trim()) {
+          const capped =
+            extra.length > this.sectionCap
+              ? extra.slice(0, this.sectionCap) + '\n…(truncated)…'
+              : extra;
+          return staticPart + '\n\n## Live Role Context\n' + capped;
+        }
+      } catch (err) {
+        this.log.warn(`dynamicContext failed: ${(err as Error).message}`);
+      }
+    }
+    return staticPart;
+  }
+
+  private async buildStaticSections(): Promise<string> {
     if (this.cache && Date.now() - this.cache.loadedAt < this.cacheTtlMs) {
       return this.cache.text;
     }
-    const preamble =
-      "You are NightShift's chat assistant. NightShift is an autonomous build daemon that runs Discord-driven coding tasks. Answer the user's questions using the repo context below. Be concise and direct. If you don't know something from the context, say so rather than guessing.";
 
-    const sections: string[] = [preamble];
+    const sections: string[] = [this.persona];
     const knowledgeDir = path.join(this.brainDir, 'knowledge');
 
     const arch = await this.readCapped(path.join(knowledgeDir, 'architecture.md'), this.sectionCap);

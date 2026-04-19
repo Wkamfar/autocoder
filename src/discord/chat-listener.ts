@@ -28,10 +28,16 @@ export function installChatListener(
 
   client.on('messageCreate', async (msg: Message) => {
     if (msg.author.bot) return;
-    if (msg.channel.id !== chatChannelId) return;
     const content = msg.content.trim();
     if (!content) return;
     if (content.startsWith('!') || content.startsWith('/')) return;
+    if (msg.channel.id !== chatChannelId) {
+      log.info(
+        `ignored plain message in channel ${msg.channel.id} (bound to ${chatChannelId}) — set DISCORD_CHAT_CHANNEL_ID=${msg.channel.id} to enable chat here`
+      );
+      return;
+    }
+    log.info(`chat from ${msg.author.tag}: ${content.slice(0, 60)}`);
 
     try {
       await startTyping(msg.channel);
