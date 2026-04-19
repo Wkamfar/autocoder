@@ -5,6 +5,7 @@ import { CodexSession } from './codex.js';
 import { CursorCliSession } from './cursor-cli.js';
 import { LocalSession } from './local.js';
 import { RemoteLocalSession } from './remote-local.js';
+import { GeminiSession } from './gemini.js';
 import { config } from '../config.js';
 import { Logger } from '../utils/logger.js';
 
@@ -59,6 +60,12 @@ export class SessionManager {
           config.engines.localProvider === 'deepseek'
             ? new RemoteLocalSession(sid)
             : new LocalSession(sid);
+        break;
+      case 'gemini':
+        if (config.engines.disableGemini) {
+          throw new Error('gemini engine is disabled (DISABLE_GEMINI=true)');
+        }
+        session = new GeminiSession(sid);
         break;
     }
     await session.start(opts);

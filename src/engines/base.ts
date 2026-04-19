@@ -53,6 +53,8 @@ export const PRICING: Record<string, { in: number; out: number }> = {
   'deepseek-chat': { in: 0.00027, out: 0.0011 },
   'deepseek-reasoner': { in: 0.00055, out: 0.00219 },
   'codellama:34b': { in: 0, out: 0 },
+  'gemini-2.5-flash': { in: 0.00015, out: 0.0006 },
+  'gemini-2.5-pro': { in: 0.00125, out: 0.005 },
   default: { in: 0.005, out: 0.015 },
 };
 

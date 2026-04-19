@@ -76,6 +76,8 @@ export class SessionPool {
         return config.pool.maxCodex;
       case 'local':
         return config.pool.maxLocal;
+      case 'gemini':
+        return config.pool.maxLocal;
     }
   }
 

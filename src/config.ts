@@ -33,13 +33,37 @@ export const config = {
   discord: {
     token: str('DISCORD_BOT_TOKEN'),
     channelId: str('DISCORD_CHANNEL_ID'),
-    /** If set, only this user may run `!ns sales` (recommended). */
     ownerId: str('DISCORD_OWNER_ID'),
     webhookUrl: str('DISCORD_WEBHOOK_URL'),
-    /** If set, `!ns sales` only works in this channel (use your sales channel id). */
     salesChannelId: str('DISCORD_SALES_CHANNEL_ID'),
-    /** Require DISCORD_OWNER_ID to match for sales commands (default true). */
     salesRequireOwner: bool('DISCORD_SALES_REQUIRE_OWNER', true),
+    agents: {
+      pm: {
+        token: str('DISCORD_PM_BOT_TOKEN'),
+        channelId: str('DISCORD_PM_CHANNEL_ID'),
+        webhookUrl: str('DISCORD_PM_WEBHOOK_URL'),
+      },
+      sales: {
+        token: str('DISCORD_SALES_BOT_TOKEN'),
+        channelId: str('DISCORD_SALES_CHANNEL_ID'),
+        webhookUrl: str('DISCORD_SALES_WEBHOOK_URL'),
+      },
+      research: {
+        token: str('DISCORD_RESEARCH_BOT_TOKEN'),
+        channelId: str('DISCORD_RESEARCH_CHANNEL_ID'),
+        webhookUrl: str('DISCORD_RESEARCH_WEBHOOK_URL'),
+      },
+      dev: {
+        token: str('DISCORD_DEV_BOT_TOKEN'),
+        channelId: str('DISCORD_DEV_CHANNEL_ID'),
+        webhookUrl: str('DISCORD_DEV_WEBHOOK_URL'),
+      },
+      legal: {
+        token: str('DISCORD_LEGAL_BOT_TOKEN'),
+        channelId: str('DISCORD_LEGAL_CHANNEL_ID'),
+        webhookUrl: str('DISCORD_LEGAL_WEBHOOK_URL'),
+      },
+    },
   },
   project: {
     dir: str('PROJECT_DIR', process.cwd()),
@@ -69,6 +93,10 @@ export const config = {
     deepseekApiKey: str('DEEPSEEK_API_KEY', ''),
     deepseekBaseUrl: str('DEEPSEEK_BASE_URL', 'https://api.deepseek.com'),
     deepseekModel: str('DEEPSEEK_MODEL', 'deepseek-chat'),
+    geminiApiKey: str('GEMINI_API_KEY', ''),
+    geminiBaseUrl: str('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+    geminiModel: str('GEMINI_MODEL', 'gemini-2.5-flash'),
+    disableGemini: bool('DISABLE_GEMINI', false),
   },
   safety: {
     maxRuntimeHours: num('MAX_RUNTIME_HOURS', 8),

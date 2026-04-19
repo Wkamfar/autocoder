@@ -126,6 +126,8 @@ export class ExecutionDispatcher {
         return config.engines.cursorModel;
       case 'local':
         return config.engines.localModel;
+      case 'gemini':
+        return config.engines.geminiModel;
     }
   }
 

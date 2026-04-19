@@ -1,5 +1,6 @@
 import { daemon } from './daemon.js';
 import { ClawBot } from './discord/bot.js';
+import { AgentBotManager } from './discord/agent-bots.js';
 import { Logger } from './utils/logger.js';
 import { handleCommand } from './discord/commands.js';
 import { runDoctor, formatDoctorReport } from './safety/doctor.js';
@@ -68,10 +69,18 @@ async function main(): Promise<void> {
     const bot = config.discord.token ? new ClawBot(daemon) : null;
     if (bot) {
       await bot.login();
-      log.info('nightshift daemon online (bot mode)');
-    } else {
-      log.info('nightshift daemon online (webhook-only mode — no bot token set)');
+      log.info('primary bot online');
     }
+
+    const agentMgr = new AgentBotManager(daemon);
+    await agentMgr.loginAll();
+
+    if (!bot && agentMgr) {
+      log.info('nightshift daemon online (agent bots only — no primary bot token)');
+    } else {
+      log.info('nightshift daemon online (primary + agent bots)');
+    }
+
     installShutdownHandlers('daemon');
     return;
   }

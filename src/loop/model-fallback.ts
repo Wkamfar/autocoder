@@ -10,6 +10,7 @@ const FULL_FALLBACK_CHAIN: ModelTier[] = [
   { engine: 'codex', model: 'gpt-5.3-codex', label: 'GPT-5.3 Codex', costTier: 'standard' },
   { engine: 'local', model: 'deepseek-chat', label: 'DeepSeek V3 (API)', costTier: 'standard' },
   { engine: 'local', model: 'deepseek-reasoner', label: 'DeepSeek R1 (API)', costTier: 'standard' },
+  { engine: 'gemini', model: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (backup)', costTier: 'standard' },
 ];
 
 function activeChain(): ModelTier[] {
@@ -17,6 +18,7 @@ function activeChain(): ModelTier[] {
     if (t.engine === 'codex' && config.engines.disableCodex) return false;
     if (t.engine === 'cursor' && config.engines.disableCursor) return false;
     if (t.engine === 'local' && config.engines.disableLocal) return false;
+    if (t.engine === 'gemini' && config.engines.disableGemini) return false;
     return true;
   });
 }
@@ -50,7 +52,8 @@ export class ModelFallback {
     const effectivePreferred =
       preferredEngine &&
       ((preferredEngine === 'codex' && config.engines.disableCodex) ||
-        (preferredEngine === 'local' && config.engines.disableLocal))
+        (preferredEngine === 'local' && config.engines.disableLocal) ||
+        (preferredEngine === 'gemini' && config.engines.disableGemini))
         ? undefined
         : preferredEngine;
 
@@ -170,6 +173,14 @@ export class ModelFallback {
         model: config.engines.localModel,
         label: `Local ${config.engines.localModel}`,
         costTier: 'free',
+      });
+    }
+    if (!config.engines.disableGemini && config.engines.geminiApiKey) {
+      tiers.push({
+        engine: 'gemini',
+        model: config.engines.geminiModel,
+        label: `Gemini ${config.engines.geminiModel}`,
+        costTier: 'standard',
       });
     }
     return tiers;

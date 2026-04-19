@@ -1,4 +1,13 @@
-export type EngineName = 'claude' | 'codex' | 'cursor' | 'local';
+export type EngineName = 'claude' | 'codex' | 'cursor' | 'local' | 'gemini';
+
+export type AgentRole = 'pm' | 'sales' | 'research' | 'dev' | 'legal';
+
+export interface AgentBotConfig {
+  role: AgentRole;
+  token: string;
+  channelId: string;
+  webhookUrl: string;
+}
 
 export type TaskComplexity = 'low' | 'medium' | 'high';
 export type TaskRisk = 'low' | 'medium' | 'high';
