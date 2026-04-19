@@ -9,6 +9,7 @@ import { packageApproval } from './safety/package-approval.js';
 import { modelFallback } from './loop/model-fallback.js';
 import { runDoctor, DoctorReport } from './safety/doctor.js';
 import { brain } from './brain/persistence.js';
+import { allDebatePrompts } from './council/debate-prompts.js';
 
 export class NightShiftDaemon {
   private log = new Logger('daemon');
@@ -128,6 +129,25 @@ export class NightShiftDaemon {
 
   async linkBrain(): Promise<string> {
     return brain.linkRemote();
+  }
+
+  /**
+   * Returns the debate transcript for a given task in the currently-running
+   * run (or null if none). Used by `!ns debate <task_id>`.
+   */
+  async getDebate(taskId: string): Promise<string | null> {
+    const state = this.getStatus();
+    if (!state) return null;
+    return brain.readDebate(state.run_id, taskId);
+  }
+
+  /**
+   * Returns the system prompts used for each debate role. Used by
+   * `!ns debate-prompt` so operators can see exactly what the debaters are
+   * told.
+   */
+  getDebatePrompts(): { role: string; prompt: string }[] {
+    return allDebatePrompts();
   }
 
   addObjective(obj: Objective): void {

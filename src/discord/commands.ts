@@ -26,6 +26,8 @@ export const COMMAND_HELP = `NightShift commands:
   !ns fallback                 show model fallback / cooldown state
   !ns doctor                   pre-flight check (env, binaries, repos)
   !ns link-brain               wire the OpenClaw brain git remote and verify fetch
+  !ns debate <task_id>         show the adversarial debate transcript for a task
+  !ns debate-prompt            show the system prompts used for debate agents
   !ns help                     show this`;
 
 export async function handleCommand(
@@ -173,6 +175,24 @@ export async function handleCommand(
       return '```\n' + msg + '\n```';
     }
 
+    case 'debate': {
+      if (!args) return 'need a task id. example: `!ns debate t-042`';
+      const txt = await daemon.getDebate(args.trim());
+      if (!txt) {
+        return `no debate transcript found for \`${args.trim()}\` in the current run.`;
+      }
+      return truncateForDiscord(txt);
+    }
+
+    case 'debate-prompt':
+    case 'debateprompt': {
+      const prompts = daemon.getDebatePrompts();
+      const body = prompts
+        .map((p) => `### ${p.role}\n${p.prompt.trim()}`)
+        .join('\n\n');
+      return truncateForDiscord(body);
+    }
+
     case 'fallback': {
       const snap = daemon.fallbackSnapshot();
       if (snap.length === 0) return 'all model tiers healthy.';
@@ -191,6 +211,21 @@ export async function handleCommand(
     default:
       return `unknown command \`${cmd}\`. try \`!ns help\`.`;
   }
+}
+
+/**
+ * Discord messages have a 2000-char cap. When surfacing long artifacts
+ * (debate transcripts, prompts), truncate to fit with a marker so the
+ * operator knows to `cat` the file on the VPS for the full content.
+ */
+function truncateForDiscord(text: string): string {
+  const MAX = 1900;
+  if (text.length <= MAX) return '```\n' + text + '\n```';
+  return (
+    '```\n' +
+    text.slice(0, MAX) +
+    '\n…(truncated; cat the file on the VPS for full content)…\n```'
+  );
 }
 
 function taskLine(t: Task): string {

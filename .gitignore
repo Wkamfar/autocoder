@@ -5,8 +5,10 @@ state/
 *.log
 .DS_Store
 
-# Brain is a separate git repo (knowledge layer); runtime + private remotes live here
-brain/
+# Brain is a separate git repo (knowledge layer); runtime + private remotes
+# live in the top-level brain/ dir. Leading slash so this rule does NOT match
+# our `src/brain/` source directory.
+/brain/
 
 # Local-only Claude Code permissions (may reference machine paths / hosts)
 .claude/settings.local.json

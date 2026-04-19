@@ -229,7 +229,10 @@ export class NightShiftLoop extends EventEmitter {
           (injected ? `\n\n## Live Instructions from Operator\n${injected}` : '');
 
         if (decision.mode === 'council') {
-          sessionResult = await this.council.run(task, finalContext);
+          sessionResult = await this.council.run(task, finalContext, {
+            useDebate: CouncilOrchestrator.shouldDebate(task),
+            runId: this.state.run_id,
+          });
         } else {
           let tier = undefined;
           try {
