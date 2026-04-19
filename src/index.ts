@@ -1,6 +1,7 @@
 import { daemon } from './daemon.js';
 import { ClawBot } from './discord/bot.js';
 import { AgentBotManager } from './discord/agent-bots.js';
+import { startWebServer } from './web/server.js';
 import { Logger } from './utils/logger.js';
 import { handleCommand } from './discord/commands.js';
 import { runDoctor, formatDoctorReport } from './safety/doctor.js';
@@ -74,6 +75,9 @@ async function main(): Promise<void> {
 
     const agentMgr = new AgentBotManager(daemon);
     await agentMgr.loginAll();
+
+    const webPort = Number(process.env.WEB_PORT || 3000);
+    startWebServer(webPort);
 
     if (!bot && agentMgr) {
       log.info('nightshift daemon online (agent bots only — no primary bot token)');
